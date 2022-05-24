@@ -1,0 +1,10 @@
+[package]
+name = "toml-consts"
+version = "0.1.0"
+edition = "2021"
+authors = ["William Venner <william@venner.io>"]
+publish = false
+
+[dependencies]
+toml = "0"
+serde = { version = "1", features = ["derive"] }

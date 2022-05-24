@@ -1,0 +1,31 @@
+[CLOSE_DEPLOYMENT_BUTTON_COLOR]
+type = "i16"
+value = [217, 67, 49]
+
+[CLOSE_DEPLOYMENT_BUTTON_TOLERANCE]
+type = "u16"
+value = 25
+
+[CLOSE_DEPLOYMENT_BUTTON_RED_PIXEL_THRESHOLD]
+type = "f32"
+value = 0.65
+
+[OCR_PREPROCESS_BRIGHTNESS_THRESHOLD]
+type = "u8"
+value = 100
+
+[FIND_MARKER_HSV_RANGE_HUE]
+type = "u16"
+value = [84, 140]
+
+[FIND_MARKER_HSV_RANGE_SAT]
+type = "u8"
+value = 50
+
+[FIND_MARKER_HSV_RANGE_VIB]
+type = "u8"
+value = 75
+
+[MAP_MARKER_POI_LOCATION]
+type = "f32"
+value = 0.74

@@ -1,0 +1,28 @@
+[package]
+name = "smh-vision-gpu"
+version = "0.1.0"
+edition = "2021"
+authors = ["William Venner <william@venner.io>"]
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+force-gpu-debug = []
+force-gpu-ptx-optimised = []
+gpu-ptx-vendored = []
+
+[dependencies]
+smh-vision-common = { path = "../vision-common" }
+cust = { git = "https://github.com/WilliamVenner/Rust-CUDA", branch = "fix/feature-flags", default-features = false, features = ["bytemuck"] }
+bytemuck = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+which = "4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[build-dependencies]
+which = "4"
+cc = "1"

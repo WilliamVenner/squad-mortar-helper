@@ -1,0 +1,10 @@
+[package]
+name = "smh-vision-cpu"
+version = "0.1.0"
+edition = "2021"
+authors = ["William Venner <william@venner.io>"]
+publish = false
+
+[dependencies]
+smh-vision-common = { path = "../vision-common" }
+smh-util = { path = "../util" }

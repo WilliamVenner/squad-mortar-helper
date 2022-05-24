@@ -1,0 +1,18 @@
+[package]
+name = "smh-vision-ocr"
+version = "0.1.0"
+edition = "2021"
+authors = ["William Venner <william@venner.io>"]
+publish = false
+links = "tesseract51"
+
+[dependencies]
+smh-util = { path = "../util" }
+lazy_static = "1"
+leptonica-sys = "0" # needed to link to leptonica (dependency of tesseract)
+tar = "0"
+flate2 = "1"
+
+[build-dependencies]
+cc = "1"
+build_cfg = "1"

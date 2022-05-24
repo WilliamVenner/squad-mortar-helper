@@ -1,0 +1,19 @@
+[package]
+name = "smh-heightmap-ripper"
+version = "0.1.0"
+edition = "2021"
+authors = ["William Venner <william@venner.io>"]
+publish = false
+
+[dependencies]
+thiserror = "1"
+image = "0.23"
+log = "0"
+steamlocate = "1"
+byteorder = "1"
+
+[build-dependencies]
+build_cfg = "1"
+
+[dev-dependencies]
+open = "2"

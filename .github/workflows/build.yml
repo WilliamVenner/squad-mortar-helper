@@ -1,0 +1,118 @@
+# git reset HEAD~1 && git add . && git commit -m "cd" && git push origin master --force && git tag -d v0.1.0 && git tag v0.1.0 && git push origin v0.1.0 --force
+
+name: build
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build_linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+    - name: Add target
+      run: rustup target add x86_64-unknown-linux-gnu
+
+    - name: Install dependencies
+      run: sudo apt-get update && sudo apt-get install libpng-dev libjpeg8-dev libtiff5-dev zlib1g-dev libleptonica-dev libxcb-randr0-dev libxcb-shm0-dev libxcb-shape0-dev libxcb-xfixes0-dev libclang-dev -y
+
+    - name: Clone Tesseract
+      run: git clone https://github.com/tesseract-ocr/tesseract.git --depth 1 --single-branch --branch 5.1.0
+    - name: Build Tesseract
+      env:
+        CFLAGS: -fPIC
+        CXXFLAGS: -fPIC
+      run: |
+        cd tesseract
+        ./autogen.sh
+        ./configure --disable-graphics --disable-legacy --disable-doc --disable-openmp --without-curl --without-archive --without-tensorflow --enable-shared=no --enable-static=yes
+        make
+        mkdir -p ../lib/tesseract/linux-x64
+        cp .libs/libtesseract.a ../lib/tesseract/linux-x64/libtesseract.a
+
+    - uses: WilliamVenner/cuda-toolkit@v0.2.8
+      id: cuda-toolkit
+      with:
+        method: 'network'
+
+    - name: Build 64-bit
+      run: cargo build --release --target x86_64-unknown-linux-gnu --features gpu-ptx-vendored
+
+    - name: Prepare release files
+      run: |
+        mkdir -p squad-mortar-helper
+        cp target/x86_64-unknown-linux-gnu/release/smh squad-mortar-helper/smh
+        cp target/x86_64-unknown-linux-gnu/release/deps/libsmh_vision_gpu.so squad-mortar-helper/libsmh_vision_gpu.so
+        cp target/x86_64-unknown-linux-gnu/release/CUE4Parse-Natives.so squad-mortar-helper/CUE4Parse-Natives.so
+        cp target/x86_64-unknown-linux-gnu/release/SquadHeightmapRipper squad-mortar-helper/SquadHeightmapRipper
+
+    - name: Strip
+      run: strip squad-mortar-helper/*.so squad-mortar-helper/SquadHeightmapRipper squad-mortar-helper/smh
+
+    - name: Zip
+      run: zip -r -9 smh-linux64.zip squad-mortar-helper
+
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: smh-linux64.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build_windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+    - name: Add target
+      run: rustup target add x86_64-pc-windows-msvc
+
+    - name: Clone vcpkg
+      run: git clone --depth 1 --single-branch --recursive https://github.com/microsoft/vcpkg.git
+    - name: Setup vcpkg
+      run: cd vcpkg && bootstrap-vcpkg.bat && vcpkg integrate install
+
+    - name: Install dependencies
+      run: cd vcpkg && vcpkg install leptonica:x64-windows-static-md
+
+    - uses: WilliamVenner/cuda-toolkit@v0.2.8
+      id: cuda-toolkit
+      with:
+        method: 'network'
+
+    - name: Build 64-bit
+      run: cargo build --release --target x86_64-pc-windows-msvc --features gpu-ptx-vendored
+
+    - name: Zip
+      run: |
+        mkdir squad-mortar-helper
+        copy target\x86_64-pc-windows-msvc\release\smh.exe squad-mortar-helper\smh.exe
+        copy target\x86_64-pc-windows-msvc\release\deps\smh_vision_gpu.dll squad-mortar-helper\smh_vision_gpu.dll
+        copy target\x86_64-pc-windows-msvc\release\CUE4Parse-Natives.dll squad-mortar-helper\CUE4Parse-Natives.dll
+        copy target\x86_64-pc-windows-msvc\release\SquadHeightmapRipper.exe squad-mortar-helper\SquadHeightmapRipper.exe
+        tar.exe -a -c -f smh-win64.zip squad-mortar-helper
+
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: smh-win64.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

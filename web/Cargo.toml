@@ -1,0 +1,17 @@
+[package]
+name = "smh-web"
+version = "0.1.0"
+edition = "2021"
+authors = ["William Venner <william@venner.io>"]
+publish = false
+build = "src/html.rs"
+
+[dependencies]
+smh-util = { path = "../util" }
+smh-heightmap-ripper = { path = "../heightmap-ripper" }
+tokio = { version = "1", features = ["rt", "sync", "macros", "parking_lot", "time"] }
+tokio-tungstenite = "0"
+futures-util = "0"
+local-ip-address = "0"
+lazy_static = "1"
+const_format = "0"

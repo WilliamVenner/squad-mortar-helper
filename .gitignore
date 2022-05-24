@@ -1,0 +1,7 @@
+/target
+/target-compute-sanitizer
+mlsd/lib/bin
+mlsd/resources/**/*
+!mlsd/resources/*.onnx
+settings.json
+/heightmaps/

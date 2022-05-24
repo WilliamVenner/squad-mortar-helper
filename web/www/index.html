@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+		<title>Squad Mortar Helper</title>
+
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+		<link rel="stylesheet" href="style.css">
+	</head>
+	<body>
+		<div id="status" class="active"><div>Connecting...</div></div>
+
+		<div id="ui" oncontextmenu="return false;">
+			<canvas id="map" width="0" height="0"></canvas>
+			<canvas id="overlay" width="0" height="0"></canvas>
+			<canvas id="draw" width="0" height="0"></canvas>
+		</div>
+
+		<script type="text/javascript">
+			var ws_port = Number('{{ WEBSOCKET_PORT }}');
+		</script>
+		<script type="text/javascript" src="squadex.js"></script>
+		<script type="text/javascript" src="map.js"></script>
+		<script type="text/javascript" src="ctl.js"></script>
+		<script type="text/javascript" src="ws.js"></script>
+	</body>
+</html>

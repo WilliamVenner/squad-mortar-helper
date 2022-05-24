@@ -1,0 +1,23 @@
+[package]
+name = "smh-util"
+version = "0.1.0"
+edition = "2021"
+authors = ["William Venner <william@venner.io>"]
+publish = false
+
+[dependencies]
+log = "0"
+rayon = "1.5.3"
+image = "0.23"
+imageproc = { version = "0.22", features = ["rayon"] }
+open = "2"
+paste = "1"
+parking_lot = "0"
+atomic_refcell = "0"
+anyhow = { version = "1", features = ["backtrace"] }
+bytemuck = { version = "1", features = ["derive"] }
+async-channel = "1"
+chrono = "0"
+byteorder = "1"
+serde = "1"
+crossbeam-channel = "0"
