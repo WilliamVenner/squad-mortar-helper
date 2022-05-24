@@ -1,4 +1,4 @@
-#[cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 #[cfg(all(windows, target_feature = "crt-static"))]
 compile_error!("Should be built without +crt-static to reduce binary size. Squad already makes users install MSVCRT 2015");
