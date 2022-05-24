@@ -30,6 +30,7 @@ force-gpu-ptx-optimised = ["smh-vision-gpu/force-gpu-ptx-optimised"]
 [profile.release]
 strip = true
 codegen-units = 1
+lto = "thin"
 
 [dependencies]
 smh-util = { path = "util" }
