@@ -3,10 +3,6 @@ use crate::{prelude::*, capture::Frame};
 
 pub const FPS: u32 = 15;
 
-thread_local! {
-	static _DEBUG_WATERFALL_FORBID_NESTING: AtomicBool = AtomicBool::new(false);
-}
-
 mod hardware;
 
 mod mpx_ratio;
