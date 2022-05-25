@@ -77,8 +77,8 @@ impl UIState {
 
 		if let Some(menu) = ui.begin_menu_bar() {
 			heightmaps::menu_bar(self, ui);
-			settings::menu_bar(ui);
 			web::menu_bar(self, ui);
+			settings::menu_bar(ui);
 			debug::menu_bar(ui, self);
 			about::menu_bar(ui);
 

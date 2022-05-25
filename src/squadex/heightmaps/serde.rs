@@ -31,17 +31,6 @@ pub fn serialize(w: &mut impl Write, heightmap: &Heightmap) -> Result<(), std::i
 		w.write_f32::<LE>(xyz)?;
 	}
 
-	for tex_corner in [heightmap.map_tex_corner_0, heightmap.map_tex_corner_1] {
-		if let Some(tex_corner) = tex_corner {
-			w.write_u8(1)?;
-			for xyz in tex_corner {
-				w.write_f32::<LE>(xyz)?;
-			}
-		} else {
-			w.write_u8(0)?;
-		}
-	}
-
 	let mut w = xz2::write::XzEncoder::new(w, 9);
 	w.write_all(unsafe { core::slice::from_raw_parts(heightmap.data.as_ptr() as *const u8, heightmap.data.len() * 2) })?;
 	w.flush()?;
@@ -78,18 +67,6 @@ pub fn deserialize(r: &mut impl Read) -> Result<Option<Heightmap>, std::io::Erro
 		r.read_f32::<LE>()?
 	];
 
-	let map_tex_corner_0 = if r.read_u8()? != 0 {
-		Some([r.read_f32::<LE>()?, r.read_f32::<LE>()?, r.read_f32::<LE>()?])
-	} else {
-		None
-	};
-
-	let map_tex_corner_1 = if r.read_u8()? != 0 {
-		Some([r.read_f32::<LE>()?, r.read_f32::<LE>()?, r.read_f32::<LE>()?])
-	} else {
-		None
-	};
-
 	let mut data = vec![0u8; width as usize * height as usize * 2];
 	xz2::read::XzDecoder::new(r).read_exact(&mut data)?;
 
@@ -104,8 +81,6 @@ pub fn deserialize(r: &mut impl Read) -> Result<Option<Heightmap>, std::io::Erro
 		height,
 		bounds,
 		scale,
-		map_tex_corner_0,
-		map_tex_corner_1,
 		data: Arc::from(data)
 	}))
 }

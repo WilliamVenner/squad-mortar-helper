@@ -3,12 +3,13 @@
 pub use image::{buffer::ConvertBuffer, DynamicImage, EncodableLayout, GenericImage, GenericImageView, GrayImage, RgbImage};
 pub use parking_lot::{Mutex, RwLock};
 pub use rayon::prelude::*;
+pub use atomic_refcell::{AtomicRefCell, AtomicRef, AtomicRefMut};
 
 pub type AnyError = anyhow::Error;
 
 pub use std::{
 	borrow::Cow,
-	collections::{btree_map::Entry as BTreeMapEntry, BTreeMap},
+	collections::{btree_map::Entry as BTreeMapEntry, BTreeMap, BTreeSet},
 	ffi::{c_void, CStr, CString},
 	fs::File,
 	os::raw::{c_char, c_float, c_int, c_uchar},

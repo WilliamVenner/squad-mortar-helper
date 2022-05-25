@@ -1,6 +1,6 @@
 [package]
 name = "squad-mortar-helper"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["William Venner <william@venner.io>"]
 publish = false
@@ -61,6 +61,7 @@ winit = "0.25"
 clipboard = "0"
 build-time = "0"
 bumpalo = { version = "3", features = ["collections"] }
+walkdir = "2"
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 msgbox = "0"

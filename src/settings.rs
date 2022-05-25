@@ -25,7 +25,7 @@ atomic_types! {
 }
 
 macro_rules! settings {
-	{atomics => {$($(#[$attr:meta])? $name:ident: $ty:ty = $default:expr),*}, clones => {$($(#[$spin_attr:meta])? $spin_name:ident: $spin_ty:ty = $spin_default:expr),*}} => {
+	{atomics => {$($(#[$attr:meta])? $name:ident: $ty:ty = $default:expr),*}, spinners => {$($(#[$spin_attr:meta])? $spin_name:ident: $spin_ty:ty = $spin_default:expr),*}} => {
 		#[derive(serde::Serialize, serde::Deserialize)]
 		pub struct SpinSettings {
 			$($(#[$spin_attr])? $spin_name: SpinCell<$spin_ty>,)*
@@ -109,11 +109,12 @@ settings! {
 	atomics => {
 		#[cfg(all(feature = "gpu", any(windows, target_os = "linux"), target_arch = "x86_64"))]
 		hardware_acceleration: AtomicBool = true,
-
-		github_star_modal: AtomicU8 = 0
+		github_star_modal: AtomicU8 = 0,
+		detect_markers: AtomicBool = true,
+		grayscale_map: AtomicBool = true
 	},
 
-	clones => {
+	spinners => {
 		squad_dir: Option<Box<str>> = None,
 		squad_pak_aes: Option<Box<str>> = None
 	}
@@ -126,6 +127,16 @@ pub fn menu_bar(ui: &imgui::Ui) {
 			if imgui::MenuItem::new("Hardware Acceleration (GPU)").selected(hardware_acceleration).build(ui) {
 				SETTINGS.set_hardware_acceleration(!hardware_acceleration);
 			}
+		}
+
+		let detect_markers = SETTINGS.detect_markers();
+		if imgui::MenuItem::new("Detect Markers").selected(detect_markers).build(ui) {
+			SETTINGS.set_detect_markers(!detect_markers);
+		}
+
+		let grayscale_map = SETTINGS.grayscale_map();
+		if imgui::MenuItem::new("Grayscale Map").selected(grayscale_map).build(ui) {
+			SETTINGS.set_grayscale_map(!grayscale_map);
 		}
 
 		settings.end();

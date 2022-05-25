@@ -231,7 +231,7 @@ extern "C" __global__ void crop_to_map_brq(
 	output[y * roi_w + x] = input[(y + roi_y) * stride + (x + roi_x)].to_rgb();
 }
 
-extern "C" __global__ void crop_to_map(
+extern "C" __global__ void crop_to_map_grayscale(
 	const BGRA* const input,
 	const uint32_t stride,
 	XYWH(roi_x, roi_y, roi_w, roi_h),
@@ -248,6 +248,24 @@ extern "C" __global__ void crop_to_map(
 
 	const uint8_t luma8 = pixel.luma8();
 	gray_output[y * roi_w + x] = RGBA { luma8, luma8, luma8, 255 };
+}
+
+extern "C" __global__ void crop_to_map(
+	const BGRA* const input,
+	const uint32_t stride,
+	XYWH(roi_x, roi_y, roi_w, roi_h),
+	RGB* const output,
+	RGBA* const ui_output
+) {
+	const unsigned int x = threadIdx.x + blockIdx.x * blockDim.x;
+	const unsigned int y = threadIdx.y + blockIdx.y * blockDim.y;
+
+	if (x >= roi_w || y >= roi_h || x >= stride) [[unlikely]] return;
+
+	const RGB pixel = input[(y + roi_y) * stride + (x + roi_x)].to_rgb();
+	output[y * roi_w + x] = pixel;
+
+	ui_output[y * roi_w + x] = RGBA { pixel.r, pixel.g, pixel.b, 255 };
 }
 
 // Isolate whiteish text

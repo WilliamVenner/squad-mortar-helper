@@ -129,7 +129,7 @@ vision_dylib_wrapper! {
 	&self => {
 		fn thread_ctx(&self) -> Result<(), AnyError>;
 
-		fn crop_to_map(&self) -> Result<Option<(image::RgbaImage, [u32; 4])>, E>;
+		fn crop_to_map(&self, grayscale: bool) -> Result<Option<(image::RgbaImage, [u32; 4])>, E>;
 		fn get_cpu_frame(&self) -> Arc<VisionFrame>;
 
 		fn ocr_preprocess(&self) -> Result<(*const u8, usize), E>;

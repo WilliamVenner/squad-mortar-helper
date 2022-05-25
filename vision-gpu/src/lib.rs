@@ -197,7 +197,9 @@ impl Vision for CUDAInstance {
 		self.state.update_map_markers(map_marker_size)
 	}
 
-	fn crop_to_map(&self) -> Result<Option<(image::RgbaImage, [u32; 4])>, Self::Error> {
+	fn crop_to_map(&self, grayscale: bool) -> Result<Option<(image::RgbaImage, [u32; 4])>, Self::Error> {
+		// TODO whats the point of cropping on GPU? shouldn't we just use the CPU?
+
 		let (stream_a, stream_b) = memory!(&self.crop_to_map_streams);
 
 		let frame = memory!(&self.frame);
@@ -246,15 +248,27 @@ impl Vision for CUDAInstance {
 
 		unsafe {
 			let (grid, block) = gpu_2d_kernel![<<<[w, h], (8, 8)>>>];
-			launch!(
-				self.crop_to_map<<<grid, block, 0, stream_a>>>(
-					frame.as_device_ptr(), // BGRA
-					frame.width,
-					x, y, w, h,
-					cropped_map.as_device_ptr(), // RGB
-					ui_map.as_device_ptr() // RGBA
-				)
-			)?;
+			if grayscale {
+				launch!(
+					self.crop_to_map_grayscale<<<grid, block, 0, stream_a>>>(
+						frame.as_device_ptr(), // BGRA
+						frame.width,
+						x, y, w, h,
+						cropped_map.as_device_ptr(), // RGB
+						ui_map.as_device_ptr() // RGBA
+					)
+				)?;
+			} else {
+				launch!(
+					self.crop_to_map<<<grid, block, 0, stream_a>>>(
+						frame.as_device_ptr(), // BGRA
+						frame.width,
+						x, y, w, h,
+						cropped_map.as_device_ptr(), // RGB
+						ui_map.as_device_ptr() // RGBA
+					)
+				)?;
+			}
 
 			let (grid, block) = gpu_2d_kernel![<<<[brq_w, brq_h], (8, 8)>>>];
 			launch!(
@@ -533,7 +547,7 @@ fn test_gpu_computer_vision() {
 			cuda.load_frame(OwnedSubImage::new(image, 0, 0, w, h)).unwrap();
 			cuda.load_map_markers(22).unwrap();
 
-			let ui_map = cuda.crop_to_map().unwrap().expect("crop_to_map failed");
+			let ui_map = cuda.crop_to_map(true).unwrap().expect("crop_to_map failed");
 
 			let (_, lines) = rayon::join(
 				|| {

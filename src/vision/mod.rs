@@ -63,7 +63,7 @@ impl VisionState {
 			// 1. The "UI map", the cropped map but grayscale, which is shown to the user
 			// 2. The cropped map but in color, which is used for the actual vision processing
 			// 3. The bottom-right quadrant of the map, which is used for the OCR and scales detection
-			let (ui_map, [x, y, w, h]) = debug_waterfall!(crop_to_map => match vision.crop_to_map()? {
+			let (ui_map, [x, y, w, h]) = debug_waterfall!(crop_to_map => match vision.crop_to_map(SETTINGS.grayscale_map())? {
 				Some(images) => images,
 				None => return Ok(None)
 			});
@@ -80,25 +80,29 @@ impl VisionState {
 				_find_minimap: || debug_waterfall!(find_minimap => find_minimap(&mut self.find_minimap_threads, vision.get_cpu_frame().view(x, y, w, h))),
 
 				_find_marker_lines: || {
-					vision.thread_ctx()?;
+					Ok::<_, AnyError>(if SETTINGS.detect_markers() {
+						vision.thread_ctx()?;
 
-					// Isolate green pixels, i.e., squad map markers
-					debug_waterfall!(isolate_map_markers => vision.isolate_map_markers())?;
+						// Isolate green pixels, i.e., squad map markers
+						debug_waterfall!(isolate_map_markers => vision.isolate_map_markers())?;
 
-					// We will now perform a template match using every map marker type as a template. We need to do this because it messes with the line segment detection.
-					// I.e., we want to reduce the amount of points on the image that aren't part of a line.
-					// We're lucky because on the Squad map, there will only ever be one green map icon marker, so we can just select the template match with the minimum SAD.
-					// Once we've matched this template, we can erase it from the image which will help the line segment detection algorithm with accuracy.
-					// However, we will not fully "erase" it, we'll actually leave behind a small square where the map icon marker is pointing to.
-					// This will trick the line segment detection algorithm into thinking that the map icon marker is a line segment, connecting the line back up after erasure
-					if w >= map_marker_size && h >= map_marker_size {
-						debug_waterfall!(filter_map_marker_icons => vision.filter_map_marker_icons())?;
-					}
+						// We will now perform a template match using every map marker type as a template. We need to do this because it messes with the line segment detection.
+						// I.e., we want to reduce the amount of points on the image that aren't part of a line.
+						// We're lucky because on the Squad map, there will only ever be one green map icon marker, so we can just select the template match with the minimum SAD.
+						// Once we've matched this template, we can erase it from the image which will help the line segment detection algorithm with accuracy.
+						// However, we will not fully "erase" it, we'll actually leave behind a small square where the map icon marker is pointing to.
+						// This will trick the line segment detection algorithm into thinking that the map icon marker is a line segment, connecting the line back up after erasure
+						if w >= map_marker_size && h >= map_marker_size {
+							debug_waterfall!(filter_map_marker_icons => vision.filter_map_marker_icons())?;
+						}
 
-					// Perform line segment detection on the map to find the map marker lines (i.e. what the player/squad leader is ordering mortar fire on)
-					debug_waterfall!(mask_marker_lines => vision.mask_marker_lines())?;
+						// Perform line segment detection on the map to find the map marker lines (i.e. what the player/squad leader is ordering mortar fire on)
+						debug_waterfall!(mask_marker_lines => vision.mask_marker_lines())?;
 
-					Ok::<_, AnyError>(debug_waterfall!(find_marker_lines => vision.find_marker_lines(((map_marker_size as f32) * MAP_MARKER_POI_LOCATION) as u32))?)
+						debug_waterfall!(find_marker_lines => vision.find_marker_lines(((map_marker_size as f32) * MAP_MARKER_POI_LOCATION) as u32))?
+					} else {
+						Default::default()
+					})
 				},
 
 				_meters_to_px_ratio: || {

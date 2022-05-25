@@ -45,7 +45,7 @@ pub trait Vision: Sized + Send + Sync {
 	fn load_frame(&mut self, image: VisionFrame) -> Result<(), Self::Error>;
 	fn load_map_markers(&mut self, map_marker_size: u32) -> Result<(), Self::Error>;
 
-	fn crop_to_map(&self) -> Result<Option<(image::RgbaImage, [u32; 4])>, Self::Error>;
+	fn crop_to_map(&self, grayscale: bool) -> Result<Option<(image::RgbaImage, [u32; 4])>, Self::Error>;
 
 	// TODO: might be able to replace pointer here with a GAT type when stabilized - passing lifetimes across the dylib boundary is not easy
 	fn ocr_preprocess(&self) -> Result<(*const u8, usize), Self::Error>;

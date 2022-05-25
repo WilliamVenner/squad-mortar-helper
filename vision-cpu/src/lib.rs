@@ -88,7 +88,7 @@ impl Vision for CPUFallback {
 		Ok(())
 	}
 
-	fn crop_to_map(&self) -> Result<Option<(image::RgbaImage, [u32; 4])>, Self::Error> {
+	fn crop_to_map(&self, grayscale: bool) -> Result<Option<(image::RgbaImage, [u32; 4])>, Self::Error> {
 		let frame = &self.frame;
 		let mut cropped_map = memory!(&mut self.cropped_map);
 		let mut cropped_brq = memory!(&mut self.cropped_brq);
@@ -129,11 +129,18 @@ impl Vision for CPUFallback {
 			a: || {
 				let mut ui_map = image::RgbaImage::new(w, h);
 				let par_ui_map = UnsafeSendPtr::new_mut(&mut ui_map);
-				par_iter_pixels!(frame[x, y, w, h]).for_each(|(image_x, image_y, bgra)| {
-					let ui_map = unsafe { par_ui_map.clone().as_mut() };
-					let luma8 = bgra.to_luma().0[0];
-					ui_map.put_pixel_fast(image_x - x, image_y - y, image::Rgba([luma8, luma8, luma8, 255]));
-				});
+				if grayscale {
+					par_iter_pixels!(frame[x, y, w, h]).for_each(|(image_x, image_y, bgra)| {
+						let ui_map = unsafe { par_ui_map.clone().as_mut() };
+						let luma8 = bgra.to_luma().0[0];
+						ui_map.put_pixel_fast(image_x - x, image_y - y, image::Rgba([luma8, luma8, luma8, 255]));
+					});
+				} else {
+					par_iter_pixels!(frame[x, y, w, h]).for_each(|(image_x, image_y, bgra)| {
+						let ui_map = unsafe { par_ui_map.clone().as_mut() };
+						ui_map.put_pixel_fast(image_x - x, image_y - y, image::Rgba([bgra.0[2], bgra.0[1], bgra.0[0], 255]));
+					});
+				}
 				ui_map
 			},
 

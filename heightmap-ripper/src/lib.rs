@@ -14,8 +14,6 @@ pub struct Heightmap {
 	pub height: u32,
 	pub bounds: [[i32; 2]; 2],
 	pub scale: [f32; 3],
-	pub map_tex_corner_0: Option<[f32; 3]>,
-	pub map_tex_corner_1: Option<[f32; 3]>,
 	pub data: Arc<[u16]>,
 }
 impl Heightmap {
@@ -45,8 +43,6 @@ impl core::fmt::Debug for Heightmap {
 			.field("height", &self.height)
 			.field("bounds", &self.bounds)
 			.field("scale", &self.scale)
-			.field("map_tex_corner_0", &self.map_tex_corner_0)
-			.field("map_tex_corner_1", &self.map_tex_corner_1)
 			.field("data", &self.data.len())
 			.finish()
 	}
@@ -61,23 +57,38 @@ pub enum Error {
 	Runtime(Box<str>),
 }
 
+pub const SQUAD_APP_ID: u32 = 393380;
 pub fn find_squad_dir() -> Option<PathBuf> {
-	const SQUAD_APP_ID: u32 = 393380;
 	steamlocate::SteamDir::locate()?.app(&SQUAD_APP_ID).map(|app| app.path.to_path_buf())
 }
 
-pub fn get_heightmap(paks_dir: impl AsRef<str>, aes_key: Option<impl AsRef<str>>, map_path: impl AsRef<str>) -> Result<Option<Heightmap>, Error> {
-	log::info!("Generating heightmap...");
-	log::info!("Map: {}", map_path.as_ref());
-	log::info!("PAKs: {}", paks_dir.as_ref());
-	log::info!("AES key: {:?}", aes_key.as_ref().map(|aes_key| aes_key.as_ref()));
-
+#[cfg_attr(not(windows), allow(unused_mut))]
+fn invoke() -> Command {
 	let mut cmd = Command::new("SquadHeightmapRipper");
 
-	cmd.arg("-p").arg(paks_dir.as_ref());
+	#[cfg(windows)] {
+		use std::os::windows::process::CommandExt;
+		cmd.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
+	}
+
+	cmd
+}
+
+pub fn get_heightmap(paks_dirs: impl Iterator<Item = impl AsRef<str>>, aes_key: Option<impl AsRef<str>>, map_path: impl AsRef<str>) -> Result<Option<Heightmap>, Error> {
+	log::info!("Generating heightmap...");
+	log::info!("Map: {}", map_path.as_ref());
+
+	let mut cmd = invoke();
+
+	cmd.arg("-p");
+	for paks_dir in paks_dirs {
+		log::info!("PAKs: {}", paks_dir.as_ref());
+		cmd.arg(paks_dir.as_ref());
+	}
 	cmd.arg("-m").arg(map_path.as_ref());
 
 	if let Some(aes_key) = aes_key {
+		log::info!("AES key: {:?}", aes_key.as_ref());
 		cmd.arg("-k").arg(aes_key.as_ref());
 	}
 
@@ -113,25 +124,11 @@ pub fn get_heightmap(paks_dir: impl AsRef<str>, aes_key: Option<impl AsRef<str>>
 
 	let scale = [output.read_f32::<LE>()?, output.read_f32::<LE>()?, output.read_f32::<LE>()?];
 
-	let map_tex_corner_0 = if output.read_u8()? != 0 {
-		Some([output.read_f32::<LE>()?, output.read_f32::<LE>()?, output.read_f32::<LE>()?])
-	} else {
-		None
-	};
-
-	let map_tex_corner_1 = if output.read_u8()? != 0 {
-		Some([output.read_f32::<LE>()?, output.read_f32::<LE>()?, output.read_f32::<LE>()?])
-	} else {
-		None
-	};
-
 	Ok(Some(Heightmap {
 		width,
 		height,
 		bounds,
 		scale,
-		map_tex_corner_0,
-		map_tex_corner_1,
 		data: {
 			let pos = output.position() as usize;
 			let output = output.into_inner();
@@ -169,16 +166,20 @@ pub fn get_heightmap(paks_dir: impl AsRef<str>, aes_key: Option<impl AsRef<str>>
 	}))
 }
 
-pub fn list_maps(paks_dir: impl AsRef<str>, aes_key: Option<impl AsRef<str>>) -> Result<Box<[Box<str>]>, Error> {
+pub fn list_maps(paks_dirs: impl Iterator<Item = impl AsRef<str>>, aes_key: Option<impl AsRef<str>>) -> Result<Box<[Box<str>]>, Error> {
 	log::info!("Listing maps...");
-	log::info!("PAKs: {}", paks_dir.as_ref());
-	log::info!("AES key: {:?}", aes_key.as_ref().map(|aes_key| aes_key.as_ref()));
 
-	let mut cmd = Command::new("SquadHeightmapRipper");
+	let mut cmd = invoke();
 
-	cmd.arg("-p").arg(paks_dir.as_ref());
+	cmd.arg("-p");
+
+	for paks_dir in paks_dirs {
+		log::info!("PAKs: {}", paks_dir.as_ref());
+		cmd.arg(paks_dir.as_ref());
+	}
 
 	if let Some(aes_key) = aes_key {
+		log::info!("AES key: {}", aes_key.as_ref());
 		cmd.arg("-k").arg(aes_key.as_ref());
 	}
 
@@ -213,16 +214,40 @@ pub fn list_maps(paks_dir: impl AsRef<str>, aes_key: Option<impl AsRef<str>>) ->
 		})
 		.filter_map(|line| std::str::from_utf8(line).ok())
 		.filter(|line| {
+			line.contains("/Content/Maps/")
+		})
+		.filter(|line| {
 			![
-				"/Lighting_Layers/",
-				"/Sound_Layers/",
-				"/VFX_Layers/",
-				"/FX_Layers/",
-				"/Gameplay_Layers/",
-				"/VFX_Sound_Layers/",
+				"/lighting_layers/",
+				"/lightinglayers/",
+				"/lightlayers/",
+				"/light_layers/",
+				"/lighting_layer/",
+				"/lightinglayer/",
+				"/lightlayer/",
+				"/light_layer/",
+				"/sound_layer/",
+				"/vfx_layers/",
+				"/vfxlayers/",
+				"/vfxlayer/",
+				"/fx_layers/",
+				"/fxlayers/",
+				"/fxlayer/",
+				"/gameplay_layer/",
+				"/gameplay_layers/",
+				"/gameplaylayers/",
+				"/gameplaylayer/",
+				"/gamplaylayer/",
+				"/gamplaylayers/",
+				"/gamplay_layers/",
+				"/gamplay_layer/",
+				"/vfx_sound_layers/",
+				"/vfx_sound_layer/",
+				"/vfxsoundlayer/",
+				"/vfxsoundlayers/",
 			]
 			.into_iter()
-			.any(|filter| line.contains(filter))
+			.any(|filter| line.to_ascii_lowercase().contains(filter))
 		})
 		.map(Box::from)
 		.collect::<Box<[Box<str>]>>();
@@ -237,7 +262,7 @@ fn test_get_heightmap() {
 	use image::buffer::ConvertBuffer;
 
 	let heightmap = get_heightmap(
-		r#"Q:\Steam\steamapps\common\Squad\SquadGame\Content\Paks"#,
+		[r#"Q:\Steam\steamapps\common\Squad\SquadGame\Content\Paks"#].into_iter(),
 		Some("0xBC0C07592D6B17BAB88B83A68583A053A6D9A0450CB54ABF5C231DBA59A7466B"),
 		"SquadGame/Content/Maps/Mutaha/Mutaha.umap",
 	)
@@ -255,7 +280,7 @@ fn test_list_maps() {
 	println!(
 		"{:#?}",
 		list_maps(
-			r#"Q:\Steam\steamapps\common\Squad\SquadGame\Content\Paks"#,
+			[r#"Q:\Steam\steamapps\common\Squad\SquadGame\Content\Paks"#].into_iter(),
 			Some("0xBC0C07592D6B17BAB88B83A68583A053A6D9A0450CB54ABF5C231DBA59A7466B")
 		)
 		.unwrap()

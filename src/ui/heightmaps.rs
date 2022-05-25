@@ -13,11 +13,51 @@ fn fmt_system_time(time: SystemTime) -> String {
 	chrono::DateTime::<chrono::Local>::from(time).format("%d %b %Y %R").to_string()
 }
 
-fn find_squad_dir() -> Option<String> {
+fn find_workshop_paks(squad_dir: &str) -> Box<[Box<str>]> {
+	use std::ffi::OsStr;
+
+	let workshop_dir = Path::new(squad_dir).parent().and_then(|p| p.parent()).map(|p| {
+		p.join(format!("workshop/content/{}", smh_heightmap_ripper::SQUAD_APP_ID))
+	}).filter(|p| p.is_dir());
+
+	let workshop_dir = match workshop_dir {
+		Some(workshop_dir) => workshop_dir.into_boxed_path(),
+		None => return Default::default(),
+	};
+
+	let mut paks = BTreeSet::new();
+
+	for entry in walkdir::WalkDir::new(workshop_dir) {
+		let entry = match entry {
+			Ok(entry) => entry,
+			Err(err) => {
+				log::warn!("Error reading workshop directory: {err}");
+				continue
+			}
+		};
+
+		if entry.file_type().is_file() && entry.path().extension() == Some(OsStr::new("pak")) {
+			let parent = match entry.path().parent() {
+				Some(parent) => parent,
+				None => continue
+			};
+
+			if parent.file_name() != Some(OsStr::new("WindowsNoEditor")) {
+				continue;
+			}
+
+			paks.insert(Box::from(parent.to_string_lossy().as_ref()));
+		}
+	}
+
+	Vec::from_iter(paks).into_boxed_slice()
+}
+
+fn find_squad_dir() -> Option<Box<str>> {
 	// I don't want the program to crash because of something as mundane as this
 	// so I'm going to wrap it in a `catch_unwind` purely for paranoia reasons
 	match std::panic::catch_unwind(smh_heightmap_ripper::find_squad_dir) {
-		Ok(squad_dir) => squad_dir.map(|squad_dir| squad_dir.to_string_lossy().into_owned()),
+		Ok(squad_dir) => squad_dir.map(|squad_dir| Box::from(squad_dir.to_string_lossy().as_ref())),
 		Err(err) => {
 			if let Some(err) = err.downcast_ref::<Box<dyn std::error::Error>>() {
 				log::error!("Error finding Squad paks dir: {err}");
@@ -35,10 +75,11 @@ fn find_squad_dir() -> Option<String> {
 	}
 }
 
+type WorkshopPaks = Box<[Box<str>]>;
 struct LoadLayersResult {
 	squad_dir: Box<str>,
 	aes_key: Box<str>,
-	result: Result<smh_heightmap_ripper::LayersList, smh_heightmap_ripper::Error>,
+	result: Result<(smh_heightmap_ripper::LayersList, WorkshopPaks), smh_heightmap_ripper::Error>,
 }
 struct LoadLayersOp {
 	squad_dir: Box<str>,
@@ -46,7 +87,10 @@ struct LoadLayersOp {
 }
 impl LoadLayersOp {
 	fn load_layers(self) -> LoadLayersResult {
-		let mut result = smh_heightmap_ripper::list_maps(&(self.squad_dir.to_string() + "/SquadGame/Content/Paks"), Some(&*self.aes_key));
+		let main_paks = self.squad_dir.to_string() + "/SquadGame/Content/Paks";
+		let workshop_paks = find_workshop_paks(&self.squad_dir);
+
+		let mut result = smh_heightmap_ripper::list_maps(workshop_paks.iter().map(|pak| &**pak).chain([&*main_paks]), Some(&*self.aes_key));
 		if let Err(ref err) = result {
 			log::warn!("Error loading layers: {}", err);
 		}
@@ -56,7 +100,7 @@ impl LoadLayersOp {
 		LoadLayersResult {
 			squad_dir: self.squad_dir,
 			aes_key: self.aes_key,
-			result,
+			result: result.map(|result| (result, workshop_paks))
 		}
 	}
 }
@@ -65,6 +109,7 @@ type LoadHeightmapResult = Result<Option<LoadedHeightmap>, smh_heightmap_ripper:
 struct LoadHeightmapOp {
 	aes_key: Box<str>,
 	paks_dir: Box<str>,
+	workshop_paks: WorkshopPaks,
 	layer_path: Box<str>,
 	skip_cache: bool,
 }
@@ -91,7 +136,7 @@ impl LoadHeightmapOp {
 			}
 		}
 
-		let result = smh_heightmap_ripper::get_heightmap(&*self.paks_dir, Some(&*self.aes_key), &*self.layer_path);
+		let result = smh_heightmap_ripper::get_heightmap(self.workshop_paks.iter().map(|pak| &**pak).chain([&*self.paks_dir]), Some(&*self.aes_key), &*self.layer_path);
 		if let Err(ref err) = result {
 			log::warn!("Error generating heightmap for {}: {}", self.layer_path, err);
 		}
@@ -209,7 +254,7 @@ pub struct HeightmapsUIState {
 impl Default for HeightmapsUIState {
 	fn default() -> Self {
 		// we can get away with resolving the paks dir here
-		let default_squad_dir = find_squad_dir().map(String::into_boxed_str);
+		let default_squad_dir = find_squad_dir();
 		Self {
 			opened_heightmaps_folder: false,
 
@@ -313,7 +358,7 @@ pub(super) fn render_window(state: &mut UIState, ui: &Ui) {
 
 			let squad_dir = find_squad_dir();
 			state.heightmaps.default_squad_dir = squad_dir.as_deref().map(Into::into);
-			state.heightmaps.squad_dir = dbg!(squad_dir.unwrap_or_default());
+			state.heightmaps.squad_dir = squad_dir.map(Into::into).unwrap_or_default();
 		} else {
 			SETTINGS.set_squad_dir(Some(Box::from(state.heightmaps.squad_dir.as_str())));
 		}
@@ -476,15 +521,13 @@ pub(super) fn render_window(state: &mut UIState, ui: &Ui) {
 
 						write!(
 							&mut state.heightmaps.heightmap_info_fake_input,
-							"Generated: {}\nSize: {}x{} ({:.2} MB)\nScale: {:?}\nMinimap Bounds: {:?}\nMapTextureCorner0: {:?}\nMapTextureCorner1: {:?}",
+							"Generated: {}\nSize: {}x{} ({:.2} MB)\nScale: {:?}\nMinimap Bounds: {:?}",
 							created.unwrap_or(Cow::Borrowed("Unknown")),
 							heightmap.width,
 							heightmap.height,
 							(heightmap.width as usize * heightmap.height as usize * 2) as f32 / 1000000.0,
 							heightmap.scale,
-							heightmap.bounds,
-							heightmap.map_tex_corner_0,
-							heightmap.map_tex_corner_1
+							heightmap.bounds
 						)
 						.ok();
 
@@ -596,14 +639,18 @@ pub(super) fn render_window(state: &mut UIState, ui: &Ui) {
 		};
 
 		match layers.as_deref() {
-			Some(Ok(layers)) => {
+			Some(Ok((layers, workshop_paks))) => {
 				if layers.is_empty() {
 					ui.text_centered("No layers found! Maybe your Squad directory or AES key are incorrect?");
 				} else {
 					let layer_labels = layers
 						.iter()
 						.enumerate()
-						.map(|(i, label)| (i, label.strip_prefix("SquadGame/Content/Maps/").unwrap_or_else(|| label.as_ref())));
+						.map(|(i, label)| {
+							let label = label.strip_prefix("SquadGame/Content/Maps/").unwrap_or_else(|| label.as_ref());
+							let label = label.strip_prefix("SquadGame/Plugins/").unwrap_or(label);
+							(i, label)
+						});
 
 					let filter = state.heightmaps.filter.trim();
 					let (layer_refs, layer_labels): (Vec<usize>, Vec<&str>) = if !filter.is_empty() {
@@ -624,6 +671,7 @@ pub(super) fn render_window(state: &mut UIState, ui: &Ui) {
 								state.heightmaps.heightmap.load(LoadHeightmapOp {
 									aes_key: Box::from(state.heightmaps.aes_key.trim()),
 									paks_dir: (state.heightmaps.squad_dir.trim().to_owned() + "/SquadGame/Content/Paks").into_boxed_str(),
+									workshop_paks: workshop_paks.clone(),
 									layer_path: layers[layer_refs[state.heightmaps.selected_layer as usize]].clone(),
 									skip_cache: regenerate,
 								});
@@ -677,5 +725,3 @@ pub(super) fn render_overlay(state: &mut UIState, ui: &Ui) {
 		}
 	}
 }
-
-// TODO mod heightmaps

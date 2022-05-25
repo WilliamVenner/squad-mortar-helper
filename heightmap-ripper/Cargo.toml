@@ -12,6 +12,9 @@ log = "0"
 steamlocate = "1"
 byteorder = "1"
 
+[target.'cfg(windows)'.dependencies]
+winapi = "0.3"
+
 [build-dependencies]
 build_cfg = "1"
 
