@@ -153,8 +153,8 @@ impl VisionState {
 
 							// Parse the numerical meters from the text
 							let scale = match ocr.text[..m].parse::<u32>() {
-								Ok(scale) => scale,
-								Err(_) => continue
+								Ok(0) | Err(_) => continue,
+								Ok(scale) => scale
 							};
 
 							// Take note of the y coordinate of the bottom of this text, we'll crop to this during preprocessing later

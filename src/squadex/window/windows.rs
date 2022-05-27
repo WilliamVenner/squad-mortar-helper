@@ -3,27 +3,32 @@ use winapi::um::winnt::LPCSTR;
 
 use super::SquadEx;
 
-// FIXME In Windows Vista and later, the Window Rect now includes the area occupied by the drop shadow.
-// https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getwindowrect
-
 #[inline]
 unsafe fn dpi(window: HWND) -> u32 {
 	// 120 for me at 2560x1440
 	winapi::um::winuser::GetDpiForWindow(window)
 }
 
+// FIXME fullscreen doesn't work
+// FIXME DPI at 1080p
+
 #[inline]
 unsafe fn window_size(window: HWND) -> Option<(u32, u32, u32, u32)> {
 	let mut rect: winapi::shared::windef::RECT = std::mem::zeroed();
-	if winapi::um::winuser::GetWindowRect(window, &mut rect) != winapi::shared::minwindef::TRUE {
+	if winapi::um::winuser::GetClientRect(window, &mut rect) != winapi::shared::minwindef::TRUE {
+		return None;
+	}
+
+	let mut point: winapi::shared::windef::POINT = std::mem::zeroed();
+	if winapi::um::winuser::ClientToScreen(window, &mut point) != winapi::shared::minwindef::TRUE {
 		return None;
 	}
 
 	Some((
-		rect.left.try_into().ok()?,
-		rect.top.try_into().ok()?,
-		rect.right.checked_sub(rect.left)?.try_into().ok()?,
-		rect.bottom.checked_sub(rect.top)?.try_into().ok()?
+		point.x.try_into().ok()?,
+		point.y.try_into().ok()?,
+		rect.right as _,
+		rect.bottom as _
 	))
 }
 

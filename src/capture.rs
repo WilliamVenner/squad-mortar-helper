@@ -70,6 +70,7 @@ fn start() {
 		match capture {
 			Err(err) => {
 				log::warn!("Error while capturing frame: {err}");
+				capturer = scrap::Capturer::new(scrap::Display::primary().expect("Failed to find primary display!")).expect("Failed to initialize display capturer!");
 				std::thread::sleep(Duration::from_millis(50));
 			},
 
