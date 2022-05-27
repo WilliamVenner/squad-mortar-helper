@@ -36,6 +36,7 @@ pub enum DebugView {
 	FindScalesInput,
 	LSDPreprocess,
 	LSDInput,
+	CroppedBRQ,
 }
 impl DebugView {
 	pub fn variants() -> impl Iterator<Item = (&'static str, Self)> {
@@ -44,6 +45,7 @@ impl DebugView {
 			("Scales", Self::FindScalesInput),
 			("Marker Isolation", Self::LSDPreprocess),
 			("Line Segment Detection", Self::LSDInput),
+			("Cropped BRQ", Self::CroppedBRQ),
 		]
 		.into_iter()
 	}
@@ -58,6 +60,7 @@ impl TryFrom<u8> for DebugView {
 			2 => Ok(DebugView::FindScalesInput),
 			3 => Ok(DebugView::LSDPreprocess),
 			4 => Ok(DebugView::LSDInput),
+			5 => Ok(DebugView::CroppedBRQ),
 			_ => Err(value),
 		}
 	}

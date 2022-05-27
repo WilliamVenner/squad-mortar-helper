@@ -156,26 +156,53 @@ impl Vision for CPUFallback {
 		let mut ocr_out = memory!(&mut self.ocr_out);
 
 		ocr_out.clear();
-		debug_assert!(ocr_out.capacity() >= cropped_brq.width() as usize * cropped_brq.height() as usize);
+		ocr_out.resize(cropped_brq.width() as usize * cropped_brq.height() as usize, 0);
 
-		let w = cropped_brq.width();
+		let (w, h) = cropped_brq.dimensions();
 
+		let par_cropped_brq = UnsafeSendPtr::new_const(&*cropped_brq);
 		let par_ocr_out = UnsafeSendPtr::new_mut(&mut *ocr_out);
-		par_iter_pixels!(cropped_brq).for_each(|(x, y, pixel)| {
-			let mut pixel = pixel.to_luma().0[0];
-
-			pixel = pixel.saturating_sub(100);
-			pixel = ((((pixel as f32) / 255.0 - 0.5) * 4.0 + 0.5) * 255.0).max(0.0).min(255.0) as u8;
-
+		(0..w).into_par_iter().map(|x| (0..h).into_par_iter().map(move |y| (x, y))).flatten().for_each(|(x, y)| {
+			let cropped_brq = unsafe { par_cropped_brq.clone().as_const() };
 			let ocr_out = unsafe { par_ocr_out.clone().as_mut() };
-			if pixel >= OCR_PREPROCESS_BRIGHTNESS_THRESHOLD {
-				unsafe { ocr_out.as_mut_ptr().offset((y * w + x) as isize).write(pixel) };
-			} else {
-				unsafe { ocr_out.as_mut_ptr().offset((y * w + x) as isize).write(0) };
+
+			let mut found = false;
+			'found: for xx in x.saturating_sub(1)..x.saturating_add(1).min(w - 1) {
+				for yy in y.saturating_sub(1)..y.saturating_add(1).min(h - 1) {
+					let pixel = cropped_brq.get_pixel_fast(xx, yy);
+
+					let mut diff: i16 = 0;
+					for a in 0..3 {
+						for b in 0..3 {
+							diff += (pixel[a] as i16 - pixel[b] as i16).abs();
+						}
+					}
+
+					if diff <= 8 && pixel.to_luma().0[0] >= OCR_PREPROCESS_BRIGHTNESS_EDGE_THRESHOLD {
+						found = true;
+						break 'found;
+					}
+				}
+			}
+
+			if found {
+				let pixel = cropped_brq.get_pixel_fast(x, y);
+
+				let mut diff: i16 = 0;
+				for a in 0..3 {
+					for b in 0..3 {
+						diff += (pixel[a] as i16 - pixel[b] as i16).abs();
+					}
+				}
+
+				if diff <= 8 {
+					let luma8 = pixel.to_luma().0[0];
+					if luma8 >= OCR_PREPROCESS_BRIGHTNESS_THRESHOLD {
+						ocr_out[(x + y * w) as usize] = luma8;
+					}
+				}
 			}
 		});
-
-		unsafe { ocr_out.set_len(cropped_brq.width() as usize * cropped_brq.height() as usize) };
 
 		Ok((ocr_out.as_ptr(), ocr_out.len()))
 	}
@@ -415,7 +442,10 @@ impl Vision for CPUFallback {
 			},
 			debug::DebugView::LSDInput => {
 				self.lsd_image.borrow().convert()
-			}
+			},
+			debug::DebugView::CroppedBRQ => {
+				self.cropped_brq.borrow().convert()
+			},
 		}))
 	}
 }

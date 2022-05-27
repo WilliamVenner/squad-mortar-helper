@@ -523,7 +523,10 @@ impl Vision for CUDAInstance {
 			},
 			debug::DebugView::LSDInput => {
 				memory!(&self.lsd_image).borrow().as_host_ref().convert()
-			}
+			},
+			debug::DebugView::CroppedBRQ => {
+				image::RgbImage::try_from(memory!(&self.cropped_brq)).unwrap().convert()
+			},
 		}))
 	}
 }

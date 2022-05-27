@@ -43,6 +43,17 @@
 #define IS_NOT_ZERO(x) (x != 0)
 #endif
 
+__device__ __forceinline__ float lerp(float a, float b, float t) {
+	return a + (b - a) * t;
+}
+__device__ __forceinline__ float3 lerpf3(float3 a, float3 b, float t) {
+	return float3 {
+		lerp(a.x, b.x, t),
+		lerp(a.y, b.y, t),
+		lerp(a.z, b.z, t)
+	};
+}
+
 __device__ __forceinline__ float atomicMax_block(float* const addr, const float value) {
 	float old;
 
@@ -122,31 +133,86 @@ public:
 		return (uint8_t)(((float)r + (float)g + (float)b) / 3.f);
 	}
 
-	__device__ HSV to_hsv() const {
-		HSV hsv;
+	static __device__ RGB from_hsv(HSV hsv) {
+		float r, g, b;
+		float h, s, v;
 
-		const float r = (float)this->r / 255.f;
-		const float g = (float)this->g / 255.f;
-		const float b = (float)this->b / 255.f;
+		h = (float)hsv.h;
+		s = (float)hsv.s / 100.f;
+		v = (float)hsv.v / 100.f;
 
-		const float max_c = max(r, max(g, b));
-		const float min_c = min(r, min(g, b));
-		const float delta = max_c - min_c;
+		float f = h / 60.0f;
+		float hi = floorf(f);
+		f = f - hi;
+		float p = v * (1.f - s);
+		float q = v * (1.f - s * f);
+		float t = v * (1.f - s * (1.f - f));
 
-		if (max_c == min_c) {
-			hsv.h = 0;
-		} else if (max_c == r) {
-			hsv.h = (uint16_t)(fmodf(60.f * (((g - b) / delta)), 6.f));
-		} else if (max_c == g) {
-			hsv.h = (uint16_t)(60.f * (((b - r) / delta) + 2.f));
+		if (hi == 0.0f || hi == 6.0f) {
+			r = v;
+			g = t;
+			b = p;
+		} else if (hi == 1.0f) {
+			r = q;
+			g = v;
+			b = p;
+		} else if (hi == 2.0f) {
+			r = p;
+			g = v;
+			b = t;
+		} else if (hi == 3.0f) {
+			r = p;
+			g = q;
+			b = v;
+		} else if (hi == 4.0f) {
+			r = t;
+			g = p;
+			b = v;
 		} else {
-			hsv.h = (uint16_t)(60.f * (((r - g) / delta) + 4.f));
+			r = v;
+			g = p;
+			b = q;
 		}
 
-		hsv.s = (uint8_t)(100.f * delta / max_c);
-		hsv.v = (uint8_t)(100.f * max_c);
+		uint8_t red = (uint8_t) __float2uint_rn(255.0f * r);
+		uint8_t green = (uint8_t) __float2uint_rn(255.0f * g);
+		uint8_t blue = (uint8_t) __float2uint_rn(255.0f * b);
+		return RGB { red, green, blue };
+	}
 
-		return hsv;
+	__device__ HSV to_hsv() const {
+		float r, g, b;
+		float h, s, v;
+
+		r = this->r / 255.0f;
+		g = this->g / 255.0f;
+		b = this->b / 255.0f;
+
+		float max = fmax(r, fmax(g, b));
+		float min = fmin(r, fmin(g, b));
+		float diff = max - min;
+
+		v = max;
+
+		if (v == 0.0f) { // black
+			h = s = 0.0f;
+		} else {
+			s = diff / v;
+			if (diff < 0.001f) { // grey
+				h = 0.0f;
+			} else { // color
+				if (max == r) {
+					h = 60.0f * (g - b)/diff;
+					if (h < 0.0f) { h += 360.0f; }
+				} else if (max == g) {
+					h = 60.0f * (2 + (b - r)/diff);
+				} else {
+					h = 60.0f * (4 + (r - g)/diff);
+				}
+			}
+		}
+
+		return HSV { (uint16_t)h, (uint8_t)(s * 100.f), (uint8_t)(v * 100.f) };
 	}
 };
 
@@ -281,13 +347,35 @@ extern "C" __global__ void ocr_preprocess(
 
 	if (x >= w || y >= h) [[unlikely]] return;
 
-	uint8_t pixel = input[y * w + x].luma8();
+	bool found = false;
+	for (int xx = x - 1; xx <= x + 1; xx++) {
+		for (int yy = y - 1; yy <= y + 1; yy++) {
+			if (xx < 0 || xx >= w || yy < 0 || yy >= h) [[unlikely]] continue;
 
-	pixel = sat_subu8b(pixel, 100);
-	pixel = (uint8_t)clamp((((float)pixel / 255.0 - 0.5) * 4.0 + 0.5) * 255.0, 0.0, 255.0);
+			RGB pixel = input[yy * w + xx];
+			int16_t diff = 0;
+			for (uint8_t a = 0; a < 3; a++) {
+				for (uint8_t b = 0; b < 3; b++) {
+					diff += abs((int16_t)pixel[a] - (int16_t)pixel[b]);
+				}
+			}
 
-	if (pixel >= OCR_PREPROCESS_BRIGHTNESS_THRESHOLD) {
-		out[y * w + x] = pixel;
+			found = found || (diff <= 8 && pixel.luma8() >= OCR_PREPROCESS_BRIGHTNESS_EDGE_THRESHOLD);
+		}
+	}
+
+	const RGB pixel = input[y * w + x];
+	const uint8_t luma8 = pixel.luma8();
+
+	int16_t diff = 0;
+	for (uint8_t a = 0; a < 3; a++) {
+		for (uint8_t b = 0; b < 3; b++) {
+			diff += abs((int16_t)pixel[a] - (int16_t)pixel[b]);
+		}
+	}
+
+	if (found && diff <= 8 && luma8 >= OCR_PREPROCESS_BRIGHTNESS_THRESHOLD) {
+		out[y * w + x] = luma8;
 	} else {
 		out[y * w + x] = 0;
 	}
