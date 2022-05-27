@@ -20,6 +20,17 @@ https://user-images.githubusercontent.com/14863743/168590102-8a520077-55f6-4b5d-
 * Windows or Linux
 * (Windows) Visual C++ Redistributable Runtime 2015 (Squad installs this anyway)
 
+# Features
+
+* Automatically detects your Squad Leader's markers and calculates distance, altitude difference and milliradians
+* Start a local web server with a couple clicks for interacting with SMH using your mobile phone or the Steam browser
+* Rip heightmaps from the game for improved mortar calculation accuracy
+* Supports ripping heightmaps from installed mods
+* Choose between using your CPU or GPU for computer vision
+* Hold left click on the map to draw custom markers
+* Hold right click on the map for a quick range-finder
+* Use scroll wheel and middle mouse button to pan and zoom the map
+
 # FAQ
 
 ## How does it work?
