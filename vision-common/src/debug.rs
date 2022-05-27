@@ -1,23 +1,4 @@
 use crate::prelude::*;
-use std::sync::atomic::AtomicBool;
-
-static DEBUG: AtomicBool = AtomicBool::new(false);
-
-pub fn active() -> bool {
-	DEBUG.load(std::sync::atomic::Ordering::Relaxed)
-}
-
-pub fn on() {
-	if !DEBUG.swap(true, std::sync::atomic::Ordering::AcqRel) {
-		log::info!("Debug mode on");
-	}
-}
-
-pub fn off() {
-	if DEBUG.swap(false, std::sync::atomic::Ordering::AcqRel) {
-		log::info!("Debug mode off");
-	}
-}
 
 macro_rules! timeshares {
 	{$($event:ident => $color:expr),*} => {
@@ -47,8 +28,6 @@ timeshares! {
 	find_marker_lines => [1.0, 0.0, 0.0]
 }
 
-static DEBUG_VIEW: AtomicU8 = AtomicU8::new(DebugView::None as u8);
-
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DebugView {
@@ -59,14 +38,6 @@ pub enum DebugView {
 	LSDInput,
 }
 impl DebugView {
-	pub fn get() -> Self {
-		DebugView::try_from(DEBUG_VIEW.load(std::sync::atomic::Ordering::Acquire)).sus_unwrap()
-	}
-
-	pub fn set(value: Self) {
-		DEBUG_VIEW.store(value as u8, std::sync::atomic::Ordering::Release);
-	}
-
 	pub fn variants() -> impl Iterator<Item = (&'static str, Self)> {
 		[
 			("OCR", Self::OCRInput),
@@ -95,55 +66,5 @@ impl Default for DebugView {
 	#[inline]
 	fn default() -> Self {
 		Self::None
-	}
-}
-
-#[derive(Debug)]
-pub enum DebugViewImage {
-	None,
-	Requested(DebugView),
-	Some(Arc<image::RgbaImage>),
-}
-impl DebugViewImage {
-	#[inline]
-	pub fn get_image(&self) -> Option<&Arc<image::RgbaImage>> {
-		match self {
-			DebugViewImage::None | DebugViewImage::Requested(_) => None,
-			DebugViewImage::Some(image) => Some(image),
-		}
-	}
-}
-impl Default for DebugViewImage {
-	#[inline]
-	fn default() -> Self {
-		match DebugView::get() {
-			DebugView::None => Self::None,
-			view => Self::Requested(view),
-		}
-	}
-}
-
-#[derive(Debug)]
-struct DebugActive(bool);
-impl Default for DebugActive {
-	fn default() -> Self {
-		Self(DEBUG.load(std::sync::atomic::Ordering::Relaxed))
-	}
-}
-
-#[derive(Debug, Default)]
-pub struct DebugBox {
-	debug: DebugActive,
-
-	pub dpi: Option<u32>,
-	pub timeshares: Timeshares,
-	pub ocr: Vec<smh_vision_ocr::OCRText>,
-	pub scales: SmallVec<(u32, Line<u32>), 3>,
-	pub debug_view: DebugViewImage,
-}
-impl DebugBox {
-	#[inline]
-	pub fn active(&self) -> bool {
-		self.debug.0
 	}
 }

@@ -509,9 +509,9 @@ impl Vision for CUDAInstance {
 		}
 	}
 
-	fn get_debug_view(&self) -> debug::DebugViewImage {
-		debug::DebugViewImage::Some(Arc::new(match debug::DebugView::get() {
-			debug::DebugView::None => return debug::DebugViewImage::None,
+	fn get_debug_view(&self, choice: debug::DebugView) -> Option<Arc<image::RgbaImage>> {
+		Some(Arc::new(match choice {
+			debug::DebugView::None => return None,
 			debug::DebugView::OCRInput => {
 				memory!(&self.ocr_out).borrow().as_host_ref().convert()
 			},

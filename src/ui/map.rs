@@ -206,26 +206,25 @@ fn create_map_texture(state: &mut UIState, map: &image::RgbaImage) -> Result<Tex
 }
 
 pub(super) fn render(state: &mut UIState, ui: &Ui) {
-	let map = state.vision.debug.debug_view.get_image().unwrap_or(&state.vision.map).clone();
-
+	let map = state.vision.debug.debug_view.as_ref().unwrap_or(&state.vision.map).clone();
 	let (map_w, map_h) = (map.width() as f32, map.height() as f32);
 
 	// We'll calculate a CRC32 of the map every time we capture it, and if it's unchanged, we'll skip generating a new texture for it
 	if state.new_data {
 		let map_crc32 = crc32fast::hash(map.as_bytes());
 		if state.map.texture.as_ref().map(|(map_crc32, _)| *map_crc32) != Some(map_crc32) {
+			match create_map_texture(state, &*map) {
+				Ok(map_texture) => state.map.texture = Some((map_crc32, map_texture)),
+				Err(err) => log::warn!("Failed to create map texture: {err}"),
+			}
+
 			// Update web users
 			if let Some(web) = &mut state.web.server {
-				web.send(smh_web::Event::Map { map: map.clone() });
+				web.send(smh_web::Event::Map { map });
 				web.send(smh_web::Event::Markers {
 					custom: false,
 					markers: state.vision.markers.iter().map(|marker| [marker.p0, marker.p1]).collect::<Box<_>>(),
 				});
-			}
-
-			match create_map_texture(state, &*map) {
-				Ok(map_texture) => state.map.texture = Some((map_crc32, map_texture)),
-				Err(err) => log::warn!("Failed to create map texture: {err}"),
 			}
 		}
 	}

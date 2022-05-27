@@ -141,7 +141,7 @@ vision_dylib_wrapper! {
 		fn find_marker_lines(&self, max_gap: u32) -> Result<SmallVec<Line<f32>, 32>, E>;
 		fn find_longest_line(&self, image: &LSDImage, pt: Point<f32>, max_gap: f32) -> Result<(Line<f32>, f32), E>;
 
-		fn get_debug_view(&self) -> debug::DebugViewImage;
+		fn get_debug_view(&self, choice: debug::DebugView) -> Option<Arc<image::RgbaImage>>;
 	};
 }
 

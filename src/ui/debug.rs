@@ -1,12 +1,55 @@
 use super::*;
 use smh_vision_common::debug::*;
 
+pub static SYNCED_DEBUG_STATE: SyncedDebugState = SyncedDebugState {
+	debug_view: AtomicU8::new(DebugView::None as u8),
+	ocr_overlay: AtomicBool::new(false),
+	scales_overlay: AtomicBool::new(false)
+};
+pub struct SyncedDebugState {
+	pub debug_view: AtomicU8,
+	pub ocr_overlay: AtomicBool,
+	pub scales_overlay: AtomicBool
+}
+impl SyncedDebugState {
+	pub fn debug_view(&self) -> DebugView {
+		DebugView::try_from(self.debug_view.load(std::sync::atomic::Ordering::Acquire)).sus_unwrap()
+	}
+
+	pub fn set_debug_view(&self, debug_view: DebugView) {
+		self.debug_view.store(debug_view as u8, std::sync::atomic::Ordering::Release);
+	}
+
+	pub fn ocr_overlay(&self) -> bool {
+		self.ocr_overlay.load(std::sync::atomic::Ordering::Acquire)
+	}
+
+	pub fn set_ocr_overlay(&self, ocr_overlay: bool) {
+		self.ocr_overlay.store(ocr_overlay, std::sync::atomic::Ordering::Release);
+	}
+
+	pub fn scales_overlay(&self) -> bool {
+		self.scales_overlay.load(std::sync::atomic::Ordering::Acquire)
+	}
+
+	pub fn set_scales_overlay(&self, scales_overlay: bool) {
+		self.scales_overlay.store(scales_overlay, std::sync::atomic::Ordering::Release);
+	}
+}
+
 #[derive(Default)]
-pub(super) struct DebugState {
+pub struct DebugState {
 	fps: bool,
-	ocr_overlay: bool,
-	scales_overlay: bool,
 	minimap_bounds_overlay: bool,
+}
+
+#[derive(Debug, Default)]
+pub struct DebugBox {
+	pub dpi: Option<u32>,
+	pub timeshares: Timeshares,
+	pub ocr: Vec<smh_vision_ocr::OCRText>,
+	pub scales: SmallVec<(u32, Line<u32>), 3>,
+	pub debug_view: Option<Arc<image::RgbaImage>>,
 }
 
 pub(super) fn menu_bar(ui: &Ui, state: &mut UIState) {
@@ -23,23 +66,14 @@ pub(super) fn menu_bar(ui: &Ui, state: &mut UIState) {
 		state.debug.fps = !state.debug.fps;
 	}
 
-	let show_ocr = imgui::MenuItem::new("Show OCR").selected(state.debug.ocr_overlay).build(ui);
-	let show_scales = imgui::MenuItem::new("Show Computed Scales")
-		.selected(state.debug.scales_overlay)
-		.build(ui);
+	let ocr_overlay = SYNCED_DEBUG_STATE.ocr_overlay();
+	if imgui::MenuItem::new("Show OCR").selected(ocr_overlay).build(ui) {
+		SYNCED_DEBUG_STATE.set_ocr_overlay(!ocr_overlay);
+	}
 
-	if show_ocr || show_scales {
-		if show_ocr {
-			state.debug.ocr_overlay = !state.debug.ocr_overlay;
-		}
-		if show_scales {
-			state.debug.scales_overlay = !state.debug.scales_overlay;
-		}
-		if !state.debug.ocr_overlay && !state.debug.scales_overlay {
-			crate::debug::off();
-		} else {
-			crate::debug::on();
-		}
+	let scales_overlay = SYNCED_DEBUG_STATE.scales_overlay();
+	if imgui::MenuItem::new("Show Computed Scales").selected(scales_overlay).build(ui) {
+		SYNCED_DEBUG_STATE.set_scales_overlay(!scales_overlay);
 	}
 
 	if imgui::MenuItem::new("Show Minimap Bounds")
@@ -50,15 +84,15 @@ pub(super) fn menu_bar(ui: &Ui, state: &mut UIState) {
 	}
 
 	if let Some(cv_inputs) = ui.begin_menu("Computer Vision Inputs") {
-		let choice = DebugView::get();
+		let debug_view = SYNCED_DEBUG_STATE.debug_view();
 
-		if imgui::MenuItem::new("Map").selected(choice == DebugView::None).build(ui) {
-			DebugView::set(DebugView::None);
+		if imgui::MenuItem::new("Map").selected(debug_view == DebugView::None).build(ui) {
+			SYNCED_DEBUG_STATE.set_debug_view(DebugView::None);
 		}
 
 		for (name, variant) in DebugView::variants() {
-			if imgui::MenuItem::new(name).selected(variant == choice).build(ui) {
-				DebugView::set(variant);
+			if imgui::MenuItem::new(name).selected(variant == debug_view).build(ui) {
+				SYNCED_DEBUG_STATE.set_debug_view(variant);
 			}
 		}
 
@@ -168,7 +202,7 @@ pub(super) fn render(state: &mut UIState, ui: &Ui) {
 
 	let font = ui.push_font(state.fonts.ocr_label);
 
-	if state.debug.ocr_overlay {
+	if SYNCED_DEBUG_STATE.ocr_overlay() {
 		let draw_list = ui.get_foreground_draw_list();
 
 		for ocr in state.vision.debug.ocr.iter() {
@@ -185,7 +219,7 @@ pub(super) fn render(state: &mut UIState, ui: &Ui) {
 		}
 	}
 
-	if state.debug.scales_overlay {
+	if SYNCED_DEBUG_STATE.scales_overlay() {
 		let draw_list = ui.get_foreground_draw_list();
 
 		for (meters, scale) in state.vision.debug.scales.iter() {

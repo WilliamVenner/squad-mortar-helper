@@ -15,6 +15,7 @@ mod vision;
 use prelude::*;
 mod prelude {
 	pub(crate) use crate::{
+		ui::debug::{SYNCED_DEBUG_STATE, DebugBox},
 		capture,
 		settings::{self, SETTINGS},
 		squadex, ui, vision,

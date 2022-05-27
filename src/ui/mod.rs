@@ -62,10 +62,10 @@ use fmt::ui_format;
 
 pub mod heightmaps;
 pub mod logs;
+pub mod debug;
 
 mod about;
 mod clipboard;
-mod debug;
 mod draw;
 mod fonts;
 mod map;

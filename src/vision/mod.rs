@@ -24,7 +24,8 @@ pub struct VisionResults {
 	pub markers: SmallVec<Line<f32>, 32>,
 	pub meters_to_px_ratio: Option<f64>,
 	pub minimap_bounds: Option<Rect<u32>>,
-	pub map: image::RgbaImage
+	pub map: image::RgbaImage,
+	pub debug_view: Option<Arc<image::RgbaImage>>
 }
 pub struct VisionState {
 	threads: rayon::ThreadPool,
@@ -37,14 +38,15 @@ impl VisionState {
 		AnyError: std::convert::From<V::Error>
 	{
 		// split the borrow, allowing for the rayon tasks to mutate the DebugBox in parallel!
-		let debug_active = debug.active();
 		let DebugBox { timeshares, ocr: ocr_debug, scales: scales_debug, .. } = debug;
+
+		let (ocr_overlay, scales_overlay) = (SYNCED_DEBUG_STATE.ocr_overlay(), SYNCED_DEBUG_STATE.scales_overlay());
 
 		let map_marker_size = 22; // NOTE: this ISN'T scaled to monitor size, but I have suspicion that it might be one day. So I'm leaving this here
 		vision.load_map_markers(map_marker_size)?;
 
 		let start = Instant::now();
-		let result: Result<Option<VisionResults>, AnyError> = (|| {
+		let mut result: Result<Option<VisionResults>, AnyError> = (|| {
 			macro_rules! debug_waterfall {
 				($event:ident => $code:expr) => {{
 					let waterfall = DebugWaterfall(&mut timeshares.$event as *mut _, Instant::now());
@@ -130,7 +132,7 @@ impl VisionState {
 						});
 
 						for ocr in debug_waterfall!(ocr => ocr::read(ocr_image, brq_w, brq_h, dpi)).deref() {
-							if debug_active {
+							if ocr_overlay {
 								ocr_debug.push(ocr::OCRText {
 									text: ocr.text.clone(),
 									confidence: ocr.confidence,
@@ -182,7 +184,7 @@ impl VisionState {
 					// Now find the scales themselves, in order to find a meters to pixels ratio.
 					// The scales are horizontal black lines with vertical black lines on the start and end.
 					// Like this: |----------------|
-					Ok::<_, AnyError>(if debug_active {
+					Ok::<_, AnyError>(if scales_overlay {
 						let meters_to_px_ratio = debug_waterfall!(calc_meters_to_px_ratio => calc_meters_to_px_ratio(&mut self.find_scales_threads, scales, &*find_scales_image, Some(scales_debug)));
 
 						scales_debug.iter_mut().for_each(|(_, scale)| {
@@ -199,16 +201,19 @@ impl VisionState {
 				},
 			});
 
+			result.minimap_bounds = minimap_bounds;
 			result.markers = markers?;
 			result.meters_to_px_ratio = meters_to_px_ratio?;
-			result.minimap_bounds = minimap_bounds;
 
 			Ok(Some(result))
 		})();
 
 		timeshares.entire_frame = Some(start.elapsed());
 
-		debug.debug_view = vision.get_debug_view();
+		// If the user has selected a debug view, override the map with that
+		if let Ok(Some(ref mut result)) = result {
+			result.debug_view = vision.get_debug_view(SYNCED_DEBUG_STATE.debug_view());
+		}
 
 		result
 	}
@@ -260,6 +265,8 @@ pub fn start() {
 				ui_data.meters_to_px_ratio = vision.meters_to_px_ratio;
 
 				ui_data.minimap_bounds = vision.minimap_bounds;
+
+				ui_data.debug.debug_view = vision.debug_view;
 
 				ui_data.markers = vision.markers.into_iter().map(|Line { p0, p1 }| {
 					ui::Marker::new(p0.into(), p1.into(), vision.meters_to_px_ratio)
