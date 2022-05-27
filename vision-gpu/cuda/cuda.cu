@@ -43,17 +43,6 @@
 #define IS_NOT_ZERO(x) (x != 0)
 #endif
 
-__device__ __forceinline__ float lerp(float a, float b, float t) {
-	return a + (b - a) * t;
-}
-__device__ __forceinline__ float3 lerpf3(float3 a, float3 b, float t) {
-	return float3 {
-		lerp(a.x, b.x, t),
-		lerp(a.y, b.y, t),
-		lerp(a.z, b.z, t)
-	};
-}
-
 __device__ __forceinline__ float atomicMax_block(float* const addr, const float value) {
 	float old;
 
