@@ -256,6 +256,8 @@ impl Vision for CPUFallback {
 	}
 
 	fn filter_map_marker_icons(&self) -> Result<(), Self::Error> {
+		// FIXME broken! Need to fix when I've had some sleep...
+
 		let map_marker_size = self.map_marker_size;
 		let markers = &self.markers;
 		let mut cropped_map = memory!(&mut self.cropped_map);

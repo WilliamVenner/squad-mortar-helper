@@ -436,20 +436,22 @@ extern "C" __global__ void filter_map_marker_icons(
 	const uint32_t markers_n,
 	const uint32_t marked_map_marker_pixels_count
 ) {
-	if (threadIdx.x + blockIdx.x * blockDim.x >= markers_n) [[unlikely]] return;
-	if (threadIdx.y + blockIdx.y * blockDim.y >= marked_map_marker_pixels_count) [[unlikely]] return;
+	const unsigned int x = threadIdx.x + blockIdx.x * blockDim.x;
+	const unsigned int y = threadIdx.y + blockIdx.y * blockDim.y;
 
-	const RGBA* const marker = markers[threadIdx.x + blockIdx.x * blockDim.x];
+	if (x >= markers_n || y >= marked_map_marker_pixels_count) [[unlikely]] return;
 
-	markers::TemplateMatch& template_match = marked_map_marker_pixels[threadIdx.y + blockIdx.y * blockDim.y];
+	const RGBA* const marker = markers[x];
 
-	const uint32_t x = template_match.xy % stride;
-	const uint32_t y = template_match.xy / stride;
+	markers::TemplateMatch& template_match = marked_map_marker_pixels[y];
+
+	const uint32_t xx = template_match.xy % stride;
+	const uint32_t yy = template_match.xy / stride;
 
 	for (uint32_t marker_x = 0; marker_x < marker_size; marker_x++) {
 		for (uint32_t marker_y = 0; marker_y < marker_size; marker_y++) {
 			RGBA marker_pixel = marker[marker_y * marker_size + marker_x];
-			RGB pixel = input[(y + marker_y) * stride + (x + marker_x)];
+			RGB pixel = input[(yy + marker_y) * stride + (xx + marker_x)];
 
 			uint16_t ad = (uint16_t)abs((int16_t)pixel.r - (int16_t)marker_pixel.r) + (uint16_t)abs((int16_t)pixel.g - (int16_t)marker_pixel.g) + (uint16_t)abs((int16_t)pixel.b - (int16_t)marker_pixel.b);
 			ad = (float)ad * ((float)marker_pixel.a / 255.0); // alpha blending

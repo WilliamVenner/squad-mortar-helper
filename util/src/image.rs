@@ -324,6 +324,6 @@ pub trait ConvertPixel<T: Sized + image::Pixel>: Sized + image::Pixel {
 impl<P: image::Primitive + 'static> ConvertPixel<image::Rgb<P>> for image::Bgra<P> {
 	#[inline]
 	fn convert(self) -> image::Rgb<P> {
-		image::Rgb::from_channels(self.0[0], self.0[1], self.0[2], self.0[2])
+		image::Rgb::from_channels(self.0[2], self.0[1], self.0[0], self.0[3])
 	}
 }

@@ -58,6 +58,7 @@ Fear not - the program is capable of starting a minimal webserver on your local 
 The algorithms are not perfect – Squad's map can be quite noisy, and some map blips overlap information SMH analyzes. Here are some tips to help it out.
 
 * **Don't** use software such as f.lux that affect the colours of your screen (some OS-level filters like the Windows "Night light" work fine though)
+* **Don't** zoom in to the in-game map. SMH needs the map to be fully zoomed out for heightmaps to line up properly. However, you can pan and zoom SMH's map - see the Features section.
 * Try to stay away from blips such as vehicles, HABs, etc. as they overlap squad leader markers
 * Listen to your team mates and squad for feedback on how accurate your hits are, correct if needed
 * If SMH isn't picking something up, you can draw your own markers on the map yourself!
