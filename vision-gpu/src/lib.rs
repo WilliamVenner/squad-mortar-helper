@@ -167,7 +167,7 @@ impl Vision for CUDAInstance {
 
 			// upload frame to GPU
 			if frame.inner().bounds() != frame.bounds() {
-				memory.frame = GPUImage::async_try_from(&frame.to_image(), stream)?;
+				memory.frame = GPUImage::async_try_from(&frame, stream)?;
 			} else {
 				memory.frame = GPUImage::async_try_from(frame.inner(), stream)?;
 			}
@@ -546,8 +546,7 @@ fn test_gpu_computer_vision() {
 
 			let image = image::ImageBuffer::from_raw(image.width(), image.height(), image.into_raw().into_boxed_slice()).unwrap();
 
-			let (w, h) = image.dimensions();
-			cuda.load_frame(OwnedSubImage::new(image, 0, 0, w, h)).unwrap();
+			cuda.load_frame(image).unwrap();
 			cuda.load_map_markers(22).unwrap();
 
 			let ui_map = cuda.crop_to_map(true).unwrap().expect("crop_to_map failed");

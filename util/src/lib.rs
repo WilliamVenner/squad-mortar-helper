@@ -146,3 +146,69 @@ macro_rules! impl_from_bytes_slice {
 	};
 }
 impl_from_bytes_slice!(u16, i16, u32, i32, u64, i64, u128, i128, f32, f64);
+
+#[doc(hidden)]
+pub struct UniquePtr<T, F: Fn(&mut T) -> R, R = ()> {
+	value: T,
+	destructor: F
+}
+impl<T, F, R> UniquePtr<T, F, R>
+where
+	F: Fn(&mut T) -> R
+{
+	#[inline]
+	pub fn new(value: T, destructor: F) -> Self {
+		UniquePtr { value, destructor }
+	}
+}
+impl<T, F, R> UniquePtr<*mut T, F, R>
+where
+	F: Fn(&mut *mut T) -> R
+{
+	#[inline]
+	pub fn new_nullable(value: *mut T, destructor: F) -> Option<Self> {
+		if value.is_null() {
+			None
+		} else {
+			Some(UniquePtr { value, destructor })
+		}
+	}
+}
+impl<T, F, R> Drop for UniquePtr<T, F, R>
+where
+	F: Fn(&mut T) -> R
+{
+	#[inline]
+	fn drop(&mut self) {
+		(self.destructor)(&mut self.value);
+	}
+}
+impl<T, F, R> Deref for UniquePtr<T, F, R>
+where
+	F: Fn(&mut T) -> R
+{
+	type Target = T;
+
+	#[inline]
+	fn deref(&self) -> &Self::Target {
+		&self.value
+	}
+}
+impl<T, F, R> DerefMut for UniquePtr<T, F, R>
+where
+	F: Fn(&mut T) -> R
+{
+	#[inline]
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.value
+	}
+}
+impl<T, F, R> core::fmt::Debug for UniquePtr<T, F, R>
+where
+	T: core::fmt::Debug,
+	F: Fn(&mut T) -> R
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("UniquePtr").field("value", &self.value).finish()
+    }
+}

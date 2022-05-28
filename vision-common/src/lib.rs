@@ -14,7 +14,7 @@ pub mod prelude {
 		lsd, markers,
 	};
 
-	pub type VisionFrame = OwnedSubImage<image::ImageBuffer<image::Bgra<u8>, Box<[u8]>>>;
+	pub type VisionFrame = image::ImageBuffer<image::Bgra<u8>, Box<[u8]>>;
 
 	pub use smh_util::*;
 }

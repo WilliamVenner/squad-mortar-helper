@@ -177,3 +177,12 @@ impl<T> Line<T> {
 		Self { p0, p1 }
 	}
 }
+
+#[derive(Clone, Copy, Debug, Default)]
+#[repr(C)]
+pub struct BBox<T> {
+	pub x: T,
+	pub y: T,
+	pub w: T,
+	pub h: T
+}

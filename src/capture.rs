@@ -30,9 +30,6 @@ pub fn unpark() {
 }
 
 fn start() {
-	let display = scrap::Display::primary().expect("Failed to find primary display!");
-	let mut capturer = scrap::Capturer::new(display).expect("Failed to initialize display capturer!");
-
 	// Don't waste time and resources with duplicate frames
 	let mut last_frame_crc32 = 0;
 
@@ -42,16 +39,15 @@ fn start() {
 		}
 
 		let capture = loop {
-			match capturer.frame() {
+			match squadex::capture::frame() {
 				Ok(frame) => {
 					let crc32 = crc32fast::hash(&frame);
 					if last_frame_crc32 != crc32 {
 						last_frame_crc32 = crc32;
-						break Ok(Box::from(&*frame));
+						let (w, h) = frame.dimensions();
+						break Ok(image::ImageBuffer::<image::Bgra<u8>, Box<[u8]>>::from_raw(w, h, Box::from(frame.into_raw())).sus_unwrap());
 					}
 				},
-
-				Err(ref err) if err.kind() == std::io::ErrorKind::WouldBlock => {},
 
 				Err(err) => break Err(err)
 			}
@@ -69,28 +65,12 @@ fn start() {
 
 		match capture {
 			Err(err) => {
-				log::warn!("Error while capturing frame: {err}");
-				capturer = scrap::Capturer::new(scrap::Display::primary().expect("Failed to find primary display!")).expect("Failed to initialize display capturer!");
+				log::warn!("Error while capturing frame: {err}\n{}", err.backtrace());
 				std::thread::sleep(Duration::from_millis(50));
 			},
 
 			Ok(capture) => {
-				let capture = image::ImageBuffer::<image::Bgra<u8>, Box<[u8]>>::from_raw(
-					capturer.width() as _,
-					capturer.height() as _,
-					capture
-				).expect("Failed to create image buffer");
-
 				let squadex = squadex::window::get();
-				let capture = match squadex.as_ref().and_then(|squadex| squadex.window) {
-					Some((x, y, w, h)) => {
-						OwnedSubImage::new(capture, x, y, w, h)
-					},
-					None => {
-						let (w, h) = capture.dimensions();
-						OwnedSubImage::new(capture, 0, 0, w, h)
-					}
-				};
 
 				*FRAME.lock() = Some(Frame {
 					image: capture,

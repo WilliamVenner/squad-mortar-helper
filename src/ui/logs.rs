@@ -8,6 +8,8 @@ pub struct Log {
 
 static LOG_STATE: DeferCell<crossbeam::Sender<Log>> = DeferCell::defer();
 
+// TODO dont spam logs, check the tail of the list and only send new logs
+
 pub struct LogState {
 	pub window_open: bool,
 	logs: LinkedList<Log>,
