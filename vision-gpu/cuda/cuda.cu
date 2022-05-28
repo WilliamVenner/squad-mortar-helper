@@ -349,7 +349,7 @@ extern "C" __global__ void ocr_preprocess(
 				}
 			}
 
-			found = found || (diff <= 8 && pixel.luma8() >= OCR_PREPROCESS_BRIGHTNESS_EDGE_THRESHOLD);
+			found = found || (diff <= OCR_PREPROCESS_WHITENESS_THRESHOLD && pixel.luma8() >= OCR_PREPROCESS_BRIGHTNESS_EDGE_THRESHOLD);
 		}
 	}
 

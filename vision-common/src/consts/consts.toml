@@ -12,11 +12,15 @@ value = 0.65
 
 [OCR_PREPROCESS_BRIGHTNESS_THRESHOLD]
 type = "u8"
-value = 180
+value = 175
 
 [OCR_PREPROCESS_BRIGHTNESS_EDGE_THRESHOLD]
 type = "u8"
 value = 100
+
+[OCR_PREPROCESS_WHITENESS_THRESHOLD]
+type = "i16"
+value = 16
 
 [FIND_MARKER_HSV_RANGE_HUE]
 type = "u16"

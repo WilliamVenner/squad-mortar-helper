@@ -178,7 +178,7 @@ impl Vision for CPUFallback {
 						}
 					}
 
-					if diff <= 8 && pixel.to_luma().0[0] >= OCR_PREPROCESS_BRIGHTNESS_EDGE_THRESHOLD {
+					if diff <= OCR_PREPROCESS_WHITENESS_THRESHOLD && pixel.to_luma().0[0] >= OCR_PREPROCESS_BRIGHTNESS_EDGE_THRESHOLD {
 						found = true;
 						break 'found;
 					}
