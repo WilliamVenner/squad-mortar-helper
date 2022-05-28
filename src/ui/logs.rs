@@ -1,19 +1,30 @@
 use super::*;
-use std::{fs::{File, OpenOptions}, collections::LinkedList, io::Write as IoWrite};
+use std::{
+	collections::LinkedList,
+	fs::{File, OpenOptions},
+	io::{Seek, SeekFrom, Write as IoWrite},
+};
 
+#[derive(Clone)]
 pub struct Log {
 	pub level: log::Level,
-	pub text: Box<str>
+	pub text: Box<str>,
+	pub count: u16,
+}
+impl Eq for Log {}
+impl PartialEq for Log {
+	#[inline]
+	fn eq(&self, other: &Self) -> bool {
+		self.level == other.level && self.text == other.text
+	}
 }
 
 static LOG_STATE: DeferCell<crossbeam::Sender<Log>> = DeferCell::defer();
 
-// TODO dont spam logs, check the tail of the list and only send new logs
-
 pub struct LogState {
 	pub window_open: bool,
 	logs: LinkedList<Log>,
-	rx: crossbeam::Receiver<Log>
+	rx: crossbeam::Receiver<Log>,
 }
 impl LogState {
 	fn new() -> Self {
@@ -22,12 +33,19 @@ impl LogState {
 		LogState {
 			window_open: false,
 			logs: Default::default(),
-			rx
+			rx,
 		}
 	}
 
 	pub fn digest(&mut self) {
 		while let Ok(log) = self.rx.try_recv() {
+			if let Some(prev) = self.logs.back_mut() {
+				if *prev == log {
+					prev.count = prev.count.saturating_add(1);
+					continue;
+				}
+			}
+
 			if log.level == log::Level::Error {
 				self.window_open = true;
 			}
@@ -37,15 +55,38 @@ impl LogState {
 	}
 }
 
-struct SMHLoggerFile(Mutex<File>);
+struct SMHLoggerFileInner {
+	file: File,
+	last_log: Option<Log>,
+}
+struct SMHLoggerFile(Mutex<SMHLoggerFileInner>);
 impl SMHLoggerFile {
 	fn new() -> Result<Self, SMHLogger> {
-		match OpenOptions::new().append(true).create(true).open(std::env::temp_dir().join("smh.log")) {
-			Ok(mut f) => {
-				writeln!(f, "============ SMH LOG {} ============", std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)).ok();
-				Ok(SMHLoggerFile(Mutex::new(f)))
-			},
-			Err(_) => Err(SMHLogger)
+		match OpenOptions::new()
+			.create(true)
+			.write(true)
+			.truncate(false)
+			.open(std::env::temp_dir().join("smh.log"))
+			.and_then(|mut file| {
+				file.seek(SeekFrom::End(0))?;
+				Ok(file)
+			}) {
+			Ok(mut file) => {
+				write!(
+					file,
+					"\n============ SMH LOG {} ============",
+					std::time::SystemTime::now()
+						.duration_since(std::time::SystemTime::UNIX_EPOCH)
+						.map(|d| d.as_secs())
+						.unwrap_or(0)
+				)
+				.ok();
+
+				file.flush().ok();
+
+				Ok(SMHLoggerFile(Mutex::new(SMHLoggerFileInner { file, last_log: None })))
+			}
+			Err(_) => Err(SMHLogger),
 		}
 	}
 }
@@ -60,9 +101,43 @@ impl log::Log for SMHLoggerFile {
 
 		println!("[{}] {text}", record.level());
 
-		writeln!(&mut *self.0.lock(), "[{}] {text}", record.level()).ok();
+		let log = Log {
+			level: record.level(),
+			text,
+			count: 0,
+		};
 
-		LOG_STATE.get().sus_unwrap().send(Log { level: record.level(), text }).ok();
+		let mut state = self.0.lock();
+
+		#[allow(clippy::never_loop)]
+		'new: loop {
+			if let Some(ref mut last_log) = state.last_log {
+				if *last_log == log {
+					if let Some(count) = last_log.count.checked_add(1) {
+						// Write the number of repeats
+						last_log.count = count;
+						if count != 1 {
+							let n_len = (count as f32).log10() as i64 + 1; // calculate the number of digits in the count
+							state.file.seek(SeekFrom::Current(-(n_len + " (x)".len() as i64))).ok(); // seek back to overwrite the previous count
+						}
+						write!(state.file, " (x{})", count + 1).ok();
+						state.file.flush().ok();
+					} else {
+						// If we saturate at u16::MAX, don't keep writing to the file, just discard this log
+					}
+					break 'new;
+				}
+			}
+
+			state.last_log = Some(log.clone());
+
+			write!(state.file, "\n[{}] {}", record.level(), log.text).ok();
+			state.file.flush().ok();
+
+			break;
+		}
+
+		LOG_STATE.get().sus_unwrap().send(log).ok();
 	}
 
 	fn flush(&self) {}
@@ -80,7 +155,15 @@ impl log::Log for SMHLogger {
 
 		println!("[{}] {text}", record.level());
 
-		LOG_STATE.get().sus_unwrap().send(Log { level: record.level(), text }).ok();
+		LOG_STATE
+			.get()
+			.sus_unwrap()
+			.send(Log {
+				level: record.level(),
+				text,
+				count: 0,
+			})
+			.ok();
 	}
 
 	fn flush(&self) {}
@@ -92,7 +175,7 @@ pub fn init() -> LogState {
 	let logger: Box<dyn log::Log> = if let Some("--dumplogs") = std::env::args().nth(1).as_deref() {
 		match SMHLoggerFile::new().map(Box::new).map_err(Box::new) {
 			Ok(logger) => logger,
-			Err(logger) => logger
+			Err(logger) => logger,
 		}
 	} else {
 		Box::new(SMHLogger)
@@ -105,11 +188,19 @@ pub fn init() -> LogState {
 pub(super) fn render_window(state: &mut UIState, ui: &Ui) {
 	state.logs.digest();
 
-	if !state.logs.window_open { return };
+	if !state.logs.window_open {
+		return;
+	};
 
-	let window = match imgui::Window::new("Logs").size([400.0, 300.0], imgui::Condition::FirstUseEver).opened(&mut state.logs.window_open).begin(ui) {
+	log::warn!("AAAAA");
+
+	let window = match imgui::Window::new("Logs")
+		.size([400.0, 300.0], imgui::Condition::FirstUseEver)
+		.opened(&mut state.logs.window_open)
+		.begin(ui)
+	{
 		Some(window) => window,
-		None => return
+		None => return,
 	};
 
 	if ui.button("Copy") && !state.logs.logs.is_empty() {
@@ -120,9 +211,12 @@ pub(super) fn render_window(state: &mut UIState, ui: &Ui) {
 				log::Level::Error => "[ERROR] ",
 				log::Level::Warn => "[WARN] ",
 				log::Level::Debug => "[DEBUG] ",
-				log::Level::Trace => "[TRACE] "
+				log::Level::Trace => "[TRACE] ",
 			});
 			dump.push_str(&log.text);
+			if log.count > 0 {
+				dump.push_str(&ui_format!(state, " (x{})", log.count + 1));
+			}
 			dump.push('\n');
 		}
 		dump.pop();
@@ -141,7 +235,7 @@ pub(super) fn render_window(state: &mut UIState, ui: &Ui) {
 			log::Level::Error => ("[ERROR]", [1.0, 0.0, 0.0, 1.0]),
 			log::Level::Warn => ("[WARN]", [1.0, 0.58, 0.0, 1.0]),
 			log::Level::Debug => ("[DEBUG]", [0.58, 0.0, 1.0, 1.0]),
-			log::Level::Trace => ("[TRACE]", [1.0, 1.0, 1.0, 1.0])
+			log::Level::Trace => ("[TRACE]", [1.0, 1.0, 1.0, 1.0]),
 		};
 
 		let color = ui.push_style_color(imgui::StyleColor::Text, color);
@@ -149,7 +243,11 @@ pub(super) fn render_window(state: &mut UIState, ui: &Ui) {
 		color.end();
 
 		ui.same_line();
-		ui.text_wrapped(&log.text);
+		if log.count > 0 {
+			ui.text_wrapped(&ui_format!(state, "{} (x{})", log.text, log.count + 1));
+		} else {
+			ui.text_wrapped(&log.text);
+		}
 	}
 
 	window.end();
