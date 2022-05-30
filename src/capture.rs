@@ -45,7 +45,7 @@ fn start() {
 					if last_frame_crc32 != crc32 {
 						last_frame_crc32 = crc32;
 						let (w, h) = frame.dimensions();
-						break Ok(image::ImageBuffer::<image::Bgra<u8>, Box<[u8]>>::from_raw(w, h, Box::from(frame.into_raw())).sus_unwrap());
+						break Ok(image::ImageBuffer::<image::Bgra<u8>, Box<[u8]>>::from_raw(w, h, frame.into_raw()).sus_unwrap());
 					}
 				},
 
