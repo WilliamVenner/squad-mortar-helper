@@ -329,44 +329,48 @@ extern "C" __global__ void crop_to_map(
 extern "C" __global__ void ocr_preprocess(
 	const RGB* const input,
 	WH(w, h),
-	uint8_t* const out
+	RGB* const out
 ) {
 	const unsigned int x = threadIdx.x + blockIdx.x * blockDim.x;
 	const unsigned int y = threadIdx.y + blockIdx.y * blockDim.y;
 
 	if (x >= w || y >= h) [[unlikely]] return;
 
-	bool found = false;
-	for (int xx = x - 1; xx <= x + 1; xx++) {
-		for (int yy = y - 1; yy <= y + 1; yy++) {
+	const RGB pixel = input[y * w + x];
+
+	bool keep = false;
+	for (int xx = (int)x - OCR_PREPROCESS_DILATE_RADIUS; xx <= x + OCR_PREPROCESS_DILATE_RADIUS; xx++) {
+		for (int yy = (int)y - OCR_PREPROCESS_DILATE_RADIUS; yy <= y + OCR_PREPROCESS_DILATE_RADIUS; yy++) {
 			if (xx < 0 || xx >= w || yy < 0 || yy >= h) [[unlikely]] continue;
 
-			RGB pixel = input[yy * w + xx];
-			int16_t diff = 0;
+			const RGB pixel = input[yy * w + xx];
+			uint16_t diff = 0;
 			for (uint8_t a = 0; a < 3; a++) {
 				for (uint8_t b = 0; b < 3; b++) {
-					diff += abs((int16_t)pixel[a] - (int16_t)pixel[b]);
+					diff += (uint16_t)abs((int16_t)pixel[a] - (int16_t)pixel[b]);
 				}
 			}
 
-			found = found || (diff <= OCR_PREPROCESS_WHITENESS_THRESHOLD && pixel.luma8() >= OCR_PREPROCESS_BRIGHTNESS_EDGE_THRESHOLD);
+			keep = keep || (diff <= OCR_PREPROCESS_SIMILARITY_THRESHOLD && pixel.luma8() >= OCR_PREPROCESS_BRIGHTNESS_THRESHOLD);
 		}
 	}
 
-	const RGB pixel = input[y * w + x];
-	const uint8_t luma8 = pixel.luma8();
-
-	int16_t diff = 0;
-	for (uint8_t a = 0; a < 3; a++) {
-		for (uint8_t b = 0; b < 3; b++) {
-			diff += abs((int16_t)pixel[a] - (int16_t)pixel[b]);
+	{
+		uint16_t diff = 0;
+		for (uint8_t a = 0; a < 3; a++) {
+			for (uint8_t b = 0; b < 3; b++) {
+				diff += (uint16_t)abs((int16_t)pixel[a] - (int16_t)pixel[b]);
+			}
 		}
+
+		keep = keep && diff <= OCR_PREPROCESS_SIMILARITY_EDGE_THRESHOLD && pixel.luma8() >= OCR_PREPROCESS_BRIGHTNESS_EDGE_THRESHOLD;
 	}
 
-	if (found && diff <= 8 && luma8 >= OCR_PREPROCESS_BRIGHTNESS_THRESHOLD) {
-		out[y * w + x] = luma8;
+	if (keep) {
+		const uint8_t v = (1.f - ((pixel.r + pixel.g + pixel.b) / 765.f)) * 255.f;
+		out[y * w + x] = RGB(v, v, v);
 	} else {
-		out[y * w + x] = 0;
+		out[y * w + x] = RGB(255, 255, 255);
 	}
 }
 
@@ -512,7 +516,7 @@ extern "C" __global__ void find_longest_line(
 		longest_line_length = 0.0f;
 	}
 
-	const float theta = ((float)(threadIdx.x + blockIdx.x * blockDim.x) / 10.0) * CUDART_PI_F / 180.0;
+	const float theta = ((float)(threadIdx.x + blockIdx.x * blockDim.x) / 100.0) * CUDART_PI_F / 180.0;
 
 	float x = pt.x;
 	float y = pt.y;

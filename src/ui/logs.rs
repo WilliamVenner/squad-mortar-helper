@@ -192,8 +192,6 @@ pub(super) fn render_window(state: &mut UIState, ui: &Ui) {
 		return;
 	};
 
-	log::warn!("AAAAA");
-
 	let window = match imgui::Window::new("Logs")
 		.size([400.0, 300.0], imgui::Condition::FirstUseEver)
 		.opened(&mut state.logs.window_open)

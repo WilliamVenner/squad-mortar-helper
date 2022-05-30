@@ -15,7 +15,7 @@ pub struct CPUFallback {
 	cropped_map: SusRefCell<image::RgbImage>,
 	cropped_brq: SusRefCell<image::RgbImage>,
 
-	ocr_out: SusRefCell<Vec<u8>>,
+	ocr_out: SusRefCell<image::RgbImage>,
 
 	scales_preprocessed: SusRefCell<image::GrayImage>,
 
@@ -34,6 +34,22 @@ macro_rules! memory {
 	(&mut $self:ident.$item:ident) => {
 		$self.$item.borrow_mut()
 	};
+}
+
+#[inline]
+pub fn ocr_brightness(pixel: image::Rgb<u8>) -> u8 {
+	pixel.0[0].min(pixel.0[1]).min(pixel.0[2])
+}
+
+#[inline]
+pub fn ocr_pixel_similarity(pixel: image::Rgb<u8>) -> u16 {
+	let mut diff: u16 = 0;
+	for a in 0..3 {
+		for b in 0..3 {
+			diff += pixel[a].abs_diff(pixel[b]) as u16;
+		}
+	}
+	diff
 }
 
 impl Vision for CPUFallback {
@@ -65,7 +81,7 @@ impl Vision for CPUFallback {
 
 			self.cropped_map = image::RgbImage::new(w, h).into();
 			self.cropped_brq = image::RgbImage::new(brq_w, brq_h).into();
-			self.ocr_out = Vec::with_capacity(brq_w as usize * brq_h as usize).into();
+			self.ocr_out = image::RgbImage::new(brq_w, brq_h).into();
 			self.marked_marker_pixels = (SusRefCell::new(vec![Default::default(); w as usize * h as usize]), AtomicUsize::new(0));
 			self.scales_preprocessed = image::GrayImage::new(brq_w, brq_h).into();
 			self.lsd_image = image::GrayImage::new(w, h).into();
@@ -155,9 +171,6 @@ impl Vision for CPUFallback {
 		let cropped_brq = memory!(&self.cropped_brq);
 		let mut ocr_out = memory!(&mut self.ocr_out);
 
-		ocr_out.clear();
-		ocr_out.resize(cropped_brq.width() as usize * cropped_brq.height() as usize, 0);
-
 		let (w, h) = cropped_brq.dimensions();
 
 		let par_cropped_brq = UnsafeSendPtr::new_const(&*cropped_brq);
@@ -166,43 +179,47 @@ impl Vision for CPUFallback {
 			let cropped_brq = unsafe { par_cropped_brq.clone().as_const() };
 			let ocr_out = unsafe { par_ocr_out.clone().as_mut() };
 
-			let mut found = false;
-			'found: for xx in x.saturating_sub(1)..x.saturating_add(1).min(w - 1) {
-				for yy in y.saturating_sub(1)..y.saturating_add(1).min(h - 1) {
-					let pixel = cropped_brq.get_pixel_fast(xx, yy);
+			let pixel = cropped_brq.get_pixel_fast(x, y);
 
-					let mut diff: i16 = 0;
-					for a in 0..3 {
-						for b in 0..3 {
-							diff += (pixel[a] as i16 - pixel[b] as i16).abs();
+			// If the pixel passes OCR_PREPROCESS_SIMILARITY_THRESHOLD and OCR_PREPROCESS_BRIGHTNESS_THRESHOLD then OK
+			// If the pixel doesn't pass, but has a nearby pixel that does, and itself passes OCR_PREPROCESS_SIMILARITY_THRESHOLD, OCR_PREPROCESS_BRIGHTNESS_EDGE_THRESHOLD, then OK
+
+			let should_keep = || {
+				let diff = ocr_pixel_similarity(pixel);
+				if diff <= OCR_PREPROCESS_SIMILARITY_THRESHOLD && pixel.0.into_iter().all(|px| px >= OCR_PREPROCESS_BRIGHTNESS_THRESHOLD) {
+					return true;
+				} else if diff <= OCR_PREPROCESS_SIMILARITY_EDGE_THRESHOLD && pixel.0.into_iter().all(|px| px >= OCR_PREPROCESS_BRIGHTNESS_EDGE_THRESHOLD) {
+					for xx in x.saturating_sub(OCR_PREPROCESS_DILATE_RADIUS)..=x.saturating_add(OCR_PREPROCESS_DILATE_RADIUS).min(w - OCR_PREPROCESS_DILATE_RADIUS) {
+						for yy in y.saturating_sub(OCR_PREPROCESS_DILATE_RADIUS)..=y.saturating_add(OCR_PREPROCESS_DILATE_RADIUS).min(h - OCR_PREPROCESS_DILATE_RADIUS) {
+							let pixel = cropped_brq.get_pixel_fast(xx, yy);
+
+							if pixel.0.into_iter().any(|px| px < OCR_PREPROCESS_BRIGHTNESS_THRESHOLD) {
+								continue;
+							}
+
+							if ocr_pixel_similarity(pixel) <= OCR_PREPROCESS_SIMILARITY_THRESHOLD {
+								return true;
+							}
 						}
 					}
-
-					if diff <= OCR_PREPROCESS_WHITENESS_THRESHOLD && pixel.to_luma().0[0] >= OCR_PREPROCESS_BRIGHTNESS_EDGE_THRESHOLD {
-						found = true;
-						break 'found;
-					}
-				}
-			}
-
-			if found {
-				let pixel = cropped_brq.get_pixel_fast(x, y);
-
-				let mut diff: i16 = 0;
-				for a in 0..3 {
-					for b in 0..3 {
-						diff += (pixel[a] as i16 - pixel[b] as i16).abs();
-					}
 				}
 
-				if diff <= 8 {
-					let luma8 = pixel.to_luma().0[0];
-					if luma8 >= OCR_PREPROCESS_BRIGHTNESS_THRESHOLD {
-						ocr_out[(x + y * w) as usize] = luma8;
-					}
-				}
+				false
+			};
+
+			if should_keep() {
+				ocr_out.put_pixel_fast(x, y, image::Rgb([255 - pixel.0[0], 255 - pixel.0[1], 255 - pixel.0[2]]));
+			} else {
+				ocr_out.put_pixel_fast(x, y, image::Rgb([255, 255, 255]));
 			}
 		});
+
+		// TODO try polar hough lines for lsd
+		// then blur the resulting lines
+		// then draw the line again until you reach the end of the line to get line segment
+		// dont forget to subtract the blur amount(?) from the line length
+
+		//imageproc::morphology::dilate_mut(&mut *ocr_out, imageproc::distance_transform::Norm::L1, 2);
 
 		Ok((ocr_out.as_ptr(), ocr_out.len()))
 	}
@@ -247,7 +264,7 @@ impl Vision for CPUFallback {
 			if h < FIND_MARKER_HSV_RANGE_HUE[0] || h > FIND_MARKER_HSV_RANGE_HUE[1] || s < FIND_MARKER_HSV_RANGE_SAT || v < FIND_MARKER_HSV_RANGE_VIB
 			{
 				cropped_map.put_pixel_fast(x, y, image::Rgb([0, 0, 0]));
-			} else if x >= self.map_marker_size && y >= self.map_marker_size && x < cropped_map.width() - self.map_marker_size && y < cropped_map.height() - self.map_marker_size {
+			} else if x >= self.map_marker_size && y >= self.map_marker_size && x < cropped_map.width() - self.map_marker_size - 1 && y < cropped_map.height() - self.map_marker_size - 1 {
 				marked_marker_pixels[len.fetch_add(1, std::sync::atomic::Ordering::SeqCst)] = (x, y);
 			}
 		});
@@ -290,7 +307,7 @@ impl Vision for CPUFallback {
 				let mut sad: u32 = 0;
 
 				for marker in marker.iter() {
-					let cropped_map = cropped_map.get_pixel_fast(marker.x + x, marker.y + y);
+					let cropped_map = cropped_map.get_pixel(marker.x + x, marker.y + y); // FIXME panic here?!
 					let alpha = marker.pixel.0[3];
 
 					let ad = cropped_map
@@ -411,10 +428,10 @@ impl Vision for CPUFallback {
 			Line::new(Point::new(x_start, y_start), Point::new(x_end, y_end))
 		};
 
-		let (longest, length) = (0..7200_u16)
+		let (longest, length) = (0..36000_u32)
 			.into_par_iter()
 			.map(|theta| {
-				let line = find_line_in_image(pt, max_gap, ((theta as f32) / 10.0).to_radians());
+				let line = find_line_in_image(pt, max_gap, ((theta as f32) / 100.0).to_radians());
 				(line, line.p0.distance_sqr(&line.p1))
 			})
 			.reduce(Default::default, |(a_line, a_length), (b_line, b_length)| {
@@ -432,9 +449,7 @@ impl Vision for CPUFallback {
 		Some(Arc::new(match choice {
 			debug::DebugView::None => return None,
 			debug::DebugView::OCRInput => {
-				let (w, h) = memory!(&self.cropped_brq).dimensions();
-				let ocr_out = self.ocr_out.borrow();
-				image::ImageBuffer::<image::Luma<u8>, _>::from_raw(w, h, &**ocr_out).sus_unwrap().convert()
+				self.ocr_out.borrow().convert()
 			},
 			debug::DebugView::FindScalesInput => {
 				self.scales_preprocessed.borrow().convert()

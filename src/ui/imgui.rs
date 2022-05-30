@@ -2,6 +2,7 @@ pub trait ImguiEx {
 	fn text_centered(&self, text: impl AsRef<str>);
 	fn button_centered(&self, text: impl AsRef<str>) -> bool;
 	fn frame_padding(&self) -> [f32; 2];
+	fn window_padding(&self) -> [f32; 2];
 }
 impl ImguiEx for imgui::Ui<'_> {
 	#[inline]
@@ -34,6 +35,12 @@ impl ImguiEx for imgui::Ui<'_> {
 	#[inline]
 	fn frame_padding(&self) -> [f32; 2] {
 		let padding = unsafe { (*imgui::sys::igGetStyle()).FramePadding };
+		[padding.x, padding.y]
+	}
+
+	#[inline]
+	fn window_padding(&self) -> [f32; 2] {
+		let padding = unsafe { (*imgui::sys::igGetStyle()).WindowPadding };
 		[padding.x, padding.y]
 	}
 }

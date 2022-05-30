@@ -4,12 +4,12 @@ use smh_vision_common::debug::*;
 pub static SYNCED_DEBUG_STATE: SyncedDebugState = SyncedDebugState {
 	debug_view: AtomicU8::new(DebugView::None as u8),
 	ocr_overlay: AtomicBool::new(false),
-	scales_overlay: AtomicBool::new(false)
+	scales_overlay: AtomicBool::new(false),
 };
 pub struct SyncedDebugState {
 	pub debug_view: AtomicU8,
 	pub ocr_overlay: AtomicBool,
-	pub scales_overlay: AtomicBool
+	pub scales_overlay: AtomicBool,
 }
 impl SyncedDebugState {
 	pub fn debug_view(&self) -> DebugView {
@@ -39,6 +39,7 @@ impl SyncedDebugState {
 
 #[derive(Default)]
 pub struct DebugState {
+	vision_debugger: bool,
 	fps: bool,
 	minimap_bounds_overlay: bool,
 }
@@ -97,6 +98,10 @@ pub(super) fn menu_bar(ui: &Ui, state: &mut UIState) {
 		}
 
 		cv_inputs.end();
+	}
+
+	if imgui::MenuItem::new("Vision Debugger").selected(state.debug.vision_debugger).build(ui) {
+		state.debug.vision_debugger = !state.debug.vision_debugger;
 	}
 
 	debug.end();
@@ -261,4 +266,118 @@ pub(super) fn render(state: &mut UIState, ui: &Ui) {
 	}
 
 	font.end();
+}
+
+pub(super) fn render_vision_debugger(state: &mut UIState, ui: &Ui) {
+	use image::Pixel;
+
+	if !state.debug.vision_debugger {
+		return;
+	};
+
+	if state.vision.map.is_empty() {
+		return;
+	};
+
+	let mut abs_mouse_pos = ui.io().mouse_pos;
+	if abs_mouse_pos == [f32::MAX, f32::MAX] {
+		return;
+	};
+
+	let mouse_pos = state.map.viewport.inverse_xy(abs_mouse_pos);
+	if mouse_pos.into_iter().any(|xy| xy < 0.0) {
+		return;
+	};
+
+	let rgb = match state.vision.map.get_pixel_checked(mouse_pos[0] as _, mouse_pos[1] as _) {
+		Some(rgb) => rgb.to_rgb(),
+		None => return,
+	};
+	let hsv = rgb.to_hsv();
+	let luma8 = rgb.to_luma().0[0];
+
+	let ocr_pixel_similarity = smh_vision_cpu::ocr_pixel_similarity(rgb);
+	let ocr_pixel_brightness = smh_vision_cpu::ocr_brightness(rgb);
+
+	let font = ui.push_font(state.fonts.debug_small);
+	let text = ui_format!(
+		state,
+		"RGB [{}, {}, {}]\nHSV [{}, {}, {}]\nLuma8 {}\nOCRPixelSimilarity {}\nOCRBrightness {}",
+		rgb.0[0],
+		rgb.0[1],
+		rgb.0[2],
+		hsv.0,
+		hsv.1,
+		hsv.2,
+		luma8,
+		ocr_pixel_similarity,
+		ocr_pixel_brightness
+	);
+
+	let window_padding = ui.window_padding();
+
+	let window_size = [150.0, ui.calc_text_size_with_opts(&text, false, 150.0 - (window_padding[0] * 2.0))[1] + 10.0 + ui.text_line_height() + window_padding[1]];
+
+	font.end();
+
+	let (window_pos, p0, p1) = {
+		let mut window_pos = [abs_mouse_pos[0] + 15.0, abs_mouse_pos[1] + 15.0];
+
+		if window_pos[0] + window_size[0] > state.display_size[0] || window_pos[1] + window_size[1] > state.display_size[1] {
+			window_pos = [abs_mouse_pos[0] - window_size[0] - 5.0, abs_mouse_pos[1] - window_size[1] - 5.0];
+		}
+
+		let p0: [f32; 2] = [window_pos[0] + window_padding[0], window_pos[1] + window_padding[1]];
+		let p1: [f32; 2] = (Point::from(p0) + Point::from([window_size[0] - (window_padding[0] * 2.0), 10.0])).into();
+
+		(window_pos, p0, p1)
+	};
+
+	let window = imgui::Window::new("Vision Debugger")
+		.scroll_bar(false)
+		.scrollable(false)
+		.movable(false)
+		.resizable(false)
+		.always_auto_resize(false)
+		.title_bar(false)
+		.size(window_size, imgui::Condition::Always)
+		.position(window_pos, imgui::Condition::Always)
+		.begin(ui)
+		.unwrap();
+
+	let draw = ui.get_foreground_draw_list();
+
+	draw.add_rect(p0, p1, rgb.0.map(|rgb| rgb as f32 / 255.0)).filled(true).build();
+
+	let pixel_w = state.map.viewport.scale_factor_w.floor();
+	let pixel_h = state.map.viewport.scale_factor_h.floor();
+
+	if pixel_w > 1.0 {
+		abs_mouse_pos[0] -= abs_mouse_pos[0] % pixel_w;
+	}
+	if pixel_h > 1.0 {
+		abs_mouse_pos[1] -= abs_mouse_pos[1] % pixel_h;
+	}
+
+	draw.add_rect(
+		[abs_mouse_pos[0] - pixel_w, abs_mouse_pos[1] - pixel_h],
+		[abs_mouse_pos[0] + pixel_h, abs_mouse_pos[1] + pixel_h],
+		if (rgb.0[0] as f32 * 0.299 + rgb.0[1] as f32 * 0.587 + rgb.0[2] as f32 * 0.114) > 186.0 {
+			[0.0, 0.0, 0.0, 1.0]
+		} else {
+			[1.0, 1.0, 1.0, 1.0]
+		},
+	)
+	.build();
+
+	ui.set_cursor_pos((Point::from(ui.cursor_pos()) + Point::from([0.0, 10.0])).into());
+
+	ui.spacing();
+
+	let font = ui.push_font(state.fonts.debug_small);
+
+	ui.text_wrapped(text);
+
+	font.end();
+	window.end();
 }

@@ -38,7 +38,7 @@ struct GPUMemory {
 	cropped_map: GPUImage<u8, DeviceBuffer<u8>, image::Rgb<u8>>,
 	cropped_brq: GPUImage<u8, DeviceBuffer<u8>, image::Rgb<u8>>,
 
-	ocr_out: SusRefCell<PinnedGPUImage<u8, DeviceBuffer<u8>, image::Luma<u8>>>,
+	ocr_out: SusRefCell<PinnedGPUImage<u8, DeviceBuffer<u8>, image::Rgb<u8>>>,
 
 	scales_preprocessed: GPUImage<u8, DeviceBuffer<u8>, image::Luma<u8>>,
 	scales_preprocessed_host: SusRefCell<image::GrayImage>,
@@ -83,7 +83,7 @@ impl GPUMemory {
 				cropped_map: GPUImage::uninitialized(w, h, 3)?,
 				cropped_brq: GPUImage::uninitialized(brq_w, brq_h, 3)?,
 
-				ocr_out: PinnedGPUImage::uninitialized(brq_w, brq_h, 1)?.into(),
+				ocr_out: PinnedGPUImage::uninitialized(brq_w, brq_h, 3)?.into(),
 
 				scales_preprocessed: GPUImage::uninitialized(brq_w, brq_h, 1)?,
 				scales_preprocessed_host: SusRefCell::new(image::GrayImage::new(brq_w, brq_h)),
@@ -465,7 +465,7 @@ impl Vision for CUDAInstance {
 
 		unsafe {
 			launch!(
-				self.find_longest_line<<<8, 7200 / 8, 0, stream>>>(
+				self.find_longest_line<<<8, (360 * 100) / 8, 0, stream>>>(
 					image.as_device_ptr(),
 					image.width, image.height,
 

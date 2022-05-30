@@ -191,8 +191,9 @@ fn create_map_texture(state: &mut UIState, map: &image::RgbaImage) -> Result<Tex
 			glium::texture::MipmapsOption::NoMipmap,
 		)?),
 		sampler: SamplerBehavior {
-			magnify_filter: glium::uniforms::MagnifySamplerFilter::Linear,
-			minify_filter: glium::uniforms::MinifySamplerFilter::Linear,
+			magnify_filter: glium::uniforms::MagnifySamplerFilter::Nearest,
+			minify_filter: glium::uniforms::MinifySamplerFilter::Nearest,
+			max_anisotropy: 1,
 			..Default::default()
 		},
 	};

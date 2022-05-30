@@ -87,6 +87,7 @@ impl UIState {
 
 		map::render(self, ui);
 		debug::render(self, ui);
+		debug::render_vision_debugger(self, ui);
 
 		heightmaps::render_window(self, ui);
 		logs::render_window(self, ui);

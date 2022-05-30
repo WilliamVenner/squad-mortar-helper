@@ -116,7 +116,7 @@ impl VisionState {
 						let mut scales = SmallVec::<_, 3>::new();
 
 						let ocr_image = debug_waterfall!(ocr_preprocess => vision.ocr_preprocess())?;
-						debug_assert_eq!(ocr_image.1 as u32, brq_w * brq_h);
+						debug_assert_eq!(ocr_image.1 as u32, brq_w * brq_h * 3);
 						let ocr_image = unsafe { core::slice::from_raw_parts(ocr_image.0, ocr_image.1) };
 
 						// Telling the OCR engine the DPI of the image improves accuracy
