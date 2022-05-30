@@ -329,7 +329,7 @@ extern "C" __global__ void crop_to_map(
 extern "C" __global__ void ocr_preprocess(
 	const RGB* const input,
 	WH(w, h),
-	RGB* const out
+	uint8_t* const out
 ) {
 	const unsigned int x = threadIdx.x + blockIdx.x * blockDim.x;
 	const unsigned int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -338,40 +338,61 @@ extern "C" __global__ void ocr_preprocess(
 
 	const RGB pixel = input[y * w + x];
 
-	bool keep = false;
-	for (int xx = (int)x - OCR_PREPROCESS_DILATE_RADIUS; xx <= x + OCR_PREPROCESS_DILATE_RADIUS; xx++) {
-		for (int yy = (int)y - OCR_PREPROCESS_DILATE_RADIUS; yy <= y + OCR_PREPROCESS_DILATE_RADIUS; yy++) {
-			if (xx < 0 || xx >= w || yy < 0 || yy >= h) [[unlikely]] continue;
-
-			const RGB pixel = input[yy * w + xx];
-			uint16_t diff = 0;
-			for (uint8_t a = 0; a < 3; a++) {
-				for (uint8_t b = 0; b < 3; b++) {
-					diff += (uint16_t)abs((int16_t)pixel[a] - (int16_t)pixel[b]);
-				}
-			}
-
-			keep = keep || (diff <= OCR_PREPROCESS_SIMILARITY_THRESHOLD && pixel.luma8() >= OCR_PREPROCESS_BRIGHTNESS_THRESHOLD);
-		}
-	}
-
-	{
+	const auto ocr_monochromaticy = [] (const RGB pixel) {
 		uint16_t diff = 0;
-		for (uint8_t a = 0; a < 3; a++) {
-			for (uint8_t b = 0; b < 3; b++) {
-				diff += (uint16_t)abs((int16_t)pixel[a] - (int16_t)pixel[b]);
+		for (uint8_t i = 0; i < 3; i++) {
+			for (uint8_t j = 0; j < 3; j++) {
+				diff += abs((int16_t)pixel[i] - (int16_t)pixel[j]);
+			}
+		}
+		return diff;
+	};
+
+	const uint16_t diff = ocr_monochromaticy(pixel);
+	if (diff <= OCR_PREPROCESS_MONOCHROMATICY_THRESHOLD) {
+		for (uint8_t i = 0; i < 3; i++) {
+			if (pixel[i] < OCR_PREPROCESS_BRIGHTNESS_THRESHOLD) {
+				goto edge;
+			}
+		}
+		goto keep;
+	}
+
+	edge:
+	if (diff <= OCR_PREPROCESS_SIMILARITY_EDGE_THRESHOLD) {
+		for (uint8_t i = 0; i < 3; i++) {
+			if (pixel[i] < OCR_PREPROCESS_BRIGHTNESS_EDGE_THRESHOLD) {
+				goto dont_keep;
 			}
 		}
 
-		keep = keep && diff <= OCR_PREPROCESS_SIMILARITY_EDGE_THRESHOLD && pixel.luma8() >= OCR_PREPROCESS_BRIGHTNESS_EDGE_THRESHOLD;
+		for (int32_t xx = x - OCR_PREPROCESS_DILATE_RADIUS; xx <= x + OCR_PREPROCESS_DILATE_RADIUS; xx++) {
+			for (int32_t yy = y - OCR_PREPROCESS_DILATE_RADIUS; yy <= y + OCR_PREPROCESS_DILATE_RADIUS; yy++) {
+				if (xx < 0 || xx >= w || yy < 0 || yy >= h) continue;
+
+				const RGB pixel = input[yy * w + xx];
+
+				for (uint8_t i = 0; i < 3; i++) {
+					if (pixel[i] < OCR_PREPROCESS_BRIGHTNESS_THRESHOLD) {
+						goto next_neighbour;
+					}
+				}
+
+				if (ocr_monochromaticy(pixel) <= OCR_PREPROCESS_MONOCHROMATICY_THRESHOLD) {
+					goto keep;
+				}
+
+				next_neighbour:
+			}
+		}
 	}
 
-	if (keep) {
-		const uint8_t v = (1.f - ((pixel.r + pixel.g + pixel.b) / 765.f)) * 255.f;
-		out[y * w + x] = RGB(v, v, v);
-	} else {
-		out[y * w + x] = RGB(255, 255, 255);
-	}
+	dont_keep:
+	out[y * w + x] = 255;
+	return;
+
+	keep:
+	out[y * w + x] = 255 - pixel.luma8();
 }
 
 extern "C" __global__ void find_scales_preprocess(
@@ -516,7 +537,7 @@ extern "C" __global__ void find_longest_line(
 		longest_line_length = 0.0f;
 	}
 
-	const float theta = ((float)(threadIdx.x + blockIdx.x * blockDim.x) / 100.0) * CUDART_PI_F / 180.0;
+	const float theta = ((float)(threadIdx.x + blockIdx.x * blockDim.x) / 10.0) * CUDART_PI_F / 180.0;
 
 	float x = pt.x;
 	float y = pt.y;

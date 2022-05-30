@@ -4,6 +4,7 @@ pub use smh_util::*;
 
 pub mod prelude {
 	pub use crate::{
+		PolarLine,
 		debug,
 		screen::{
 			CornerBoundX::{self, *},
@@ -26,6 +27,12 @@ pub mod dylib;
 pub mod screen;
 pub mod lsd;
 pub mod markers;
+
+#[derive(Clone, Copy, Debug)]
+pub struct PolarLine {
+	pub r: f32,
+	pub angle_in_degrees: u32
+}
 
 pub trait Vision: Sized + Send + Sync {
 	type LSDImage;

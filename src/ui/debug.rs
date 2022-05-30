@@ -296,7 +296,7 @@ pub(super) fn render_vision_debugger(state: &mut UIState, ui: &Ui) {
 	let hsv = rgb.to_hsv();
 	let luma8 = rgb.to_luma().0[0];
 
-	let ocr_pixel_similarity = smh_vision_cpu::ocr_pixel_similarity(rgb);
+	let ocr_monochromaticy = smh_vision_cpu::ocr_monochromaticy(rgb);
 	let ocr_pixel_brightness = smh_vision_cpu::ocr_brightness(rgb);
 
 	let font = ui.push_font(state.fonts.debug_small);
@@ -310,7 +310,7 @@ pub(super) fn render_vision_debugger(state: &mut UIState, ui: &Ui) {
 		hsv.1,
 		hsv.2,
 		luma8,
-		ocr_pixel_similarity,
+		ocr_monochromaticy,
 		ocr_pixel_brightness
 	);
 

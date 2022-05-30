@@ -10,7 +10,7 @@ pub(super) struct GPUMapMarkerPixel {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, DeviceCopy, Zeroable)]
+#[derive(Clone, Copy, DeviceCopy, Zeroable, Debug)]
 pub(super) struct GPUTemplateMatch {
 	pub xy: u32,
 	pub sad: u32,

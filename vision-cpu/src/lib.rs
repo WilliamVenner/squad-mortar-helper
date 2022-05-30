@@ -10,8 +10,6 @@ use smh_vision_common::{
 
 #[derive(Default)]
 pub struct CPUFallback {
-	text_scale_factor: f32,
-
 	frame: Arc<VisionFrame>,
 
 	cropped_map: SusRefCell<image::RgbImage>,
@@ -44,7 +42,7 @@ pub fn ocr_brightness(pixel: image::Rgb<u8>) -> u8 {
 }
 
 #[inline]
-pub fn ocr_pixel_similarity(pixel: image::Rgb<u8>) -> u16 {
+pub fn ocr_monochromaticy(pixel: image::Rgb<u8>) -> u16 {
 	let mut diff: u16 = 0;
 	for a in 0..3 {
 		for b in 0..3 {
@@ -102,6 +100,7 @@ impl Vision for CPUFallback {
 	fn load_map_markers(&mut self, map_marker_size: u32) -> Result<(), Self::Error> {
 		if self.map_marker_size != map_marker_size {
 			self.markers = markers::load_markers::<markers::FilteredMarkers>(map_marker_size);
+			self.map_marker_size = map_marker_size;
 		}
 		Ok(())
 	}
@@ -187,12 +186,12 @@ impl Vision for CPUFallback {
 
 				let pixel = cropped_brq.get_pixel_fast(x, y);
 
-				// If the pixel passes OCR_PREPROCESS_SIMILARITY_THRESHOLD and OCR_PREPROCESS_BRIGHTNESS_THRESHOLD then OK
-				// If the pixel doesn't pass, but has a nearby pixel that does, and itself passes OCR_PREPROCESS_SIMILARITY_THRESHOLD, OCR_PREPROCESS_BRIGHTNESS_EDGE_THRESHOLD, then OK
+				// If the pixel passes OCR_PREPROCESS_MONOCHROMATICY_THRESHOLD and OCR_PREPROCESS_BRIGHTNESS_THRESHOLD then OK
+				// If the pixel doesn't pass, but has a nearby pixel that does, and itself passes OCR_PREPROCESS_MONOCHROMATICY_THRESHOLD, OCR_PREPROCESS_BRIGHTNESS_EDGE_THRESHOLD, then OK
 
 				let should_keep = || {
-					let diff = ocr_pixel_similarity(pixel);
-					if diff <= OCR_PREPROCESS_SIMILARITY_THRESHOLD && pixel.0.into_iter().all(|px| px >= OCR_PREPROCESS_BRIGHTNESS_THRESHOLD) {
+					let diff = ocr_monochromaticy(pixel);
+					if diff <= OCR_PREPROCESS_MONOCHROMATICY_THRESHOLD && pixel.0.into_iter().all(|px| px >= OCR_PREPROCESS_BRIGHTNESS_THRESHOLD) {
 						return true;
 					} else if diff <= OCR_PREPROCESS_SIMILARITY_EDGE_THRESHOLD
 						&& pixel.0.into_iter().all(|px| px >= OCR_PREPROCESS_BRIGHTNESS_EDGE_THRESHOLD)
@@ -209,7 +208,7 @@ impl Vision for CPUFallback {
 									continue;
 								}
 
-								if ocr_pixel_similarity(pixel) <= OCR_PREPROCESS_SIMILARITY_THRESHOLD {
+								if ocr_monochromaticy(pixel) <= OCR_PREPROCESS_MONOCHROMATICY_THRESHOLD {
 									return true;
 								}
 							}
@@ -220,16 +219,11 @@ impl Vision for CPUFallback {
 				};
 
 				if should_keep() {
-					ocr_out.put_pixel_fast(x, y, image::Luma([255 - pixel.0[0]]));
+					ocr_out.put_pixel_fast(x, y, image::Luma([255 - pixel.to_luma().0[0]]));
 				} else {
 					ocr_out.put_pixel_fast(x, y, image::Luma([255]));
 				}
 			});
-
-		// TODO try polar hough lines for lsd
-		// then blur the resulting lines
-		// then draw the line again until you reach the end of the line to get line segment
-		// dont forget to subtract the blur amount(?) from the line length
 
 		Ok((ocr_out.as_ptr(), ocr_out.len()))
 	}
@@ -254,7 +248,6 @@ impl Vision for CPUFallback {
 		Ok(&self.scales_preprocessed as *const _)
 	}
 
-	#[inline]
 	fn isolate_map_markers(&self) -> Result<(), Self::Error> {
 		let mut cropped_map = memory!(&mut self.cropped_map);
 
@@ -287,8 +280,6 @@ impl Vision for CPUFallback {
 	}
 
 	fn filter_map_marker_icons(&self) -> Result<(), Self::Error> {
-		// FIXME broken! Need to fix when I've had some sleep...
-
 		let map_marker_size = self.map_marker_size;
 		let markers = &self.markers;
 		let mut cropped_map = memory!(&mut self.cropped_map);
@@ -341,8 +332,8 @@ impl Vision for CPUFallback {
 
 		if let Some(TemplateMatch { x, y, .. }) = template_match {
 			// Erase the marker icon from the map!
-			for conv_x in x..(x + map_marker_size) {
-				for conv_y in y..(y + map_marker_size) {
+			for conv_x in x..(x + map_marker_size).min(cropped_map.width() - 1) {
+				for conv_y in y..(y + map_marker_size).min(cropped_map.height() - 1) {
 					cropped_map.put_pixel_fast(conv_x, conv_y, image::Rgb([0, 0, 0]));
 				}
 			}
@@ -381,6 +372,9 @@ impl Vision for CPUFallback {
 				lsd_image.put_pixel_fast(x, y, image::Luma([0]));
 			}
 		});
+
+		// TODO we need to add this to the GPU as well
+		imageproc::morphology::dilate_mut(&mut *lsd_image, imageproc::distance_transform::Norm::L1, 1);
 
 		Ok(())
 	}
@@ -442,10 +436,10 @@ impl Vision for CPUFallback {
 			Line::new(Point::new(x_start, y_start), Point::new(x_end, y_end))
 		};
 
-		let (longest, length) = (0..36000_u32)
+		let (longest, length) = (0..3600_u32)
 			.into_par_iter()
 			.map(|theta| {
-				let line = find_line_in_image(pt, max_gap, ((theta as f32) / 100.0).to_radians());
+				let line = find_line_in_image(pt, max_gap, ((theta as f32) / 10.0).to_radians());
 				(line, line.p0.distance_sqr(&line.p1))
 			})
 			.reduce(Default::default, |(a_line, a_length), (b_line, b_length)| {
