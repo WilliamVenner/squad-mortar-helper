@@ -10,12 +10,14 @@ use smh_vision_common::{
 
 #[derive(Default)]
 pub struct CPUFallback {
+	text_scale_factor: f32,
+
 	frame: Arc<VisionFrame>,
 
 	cropped_map: SusRefCell<image::RgbImage>,
 	cropped_brq: SusRefCell<image::RgbImage>,
 
-	ocr_out: SusRefCell<image::RgbImage>,
+	ocr_out: SusRefCell<image::GrayImage>,
 
 	scales_preprocessed: SusRefCell<image::GrayImage>,
 
@@ -23,7 +25,7 @@ pub struct CPUFallback {
 
 	marked_marker_pixels: (SusRefCell<Vec<(u32, u32)>>, AtomicUsize),
 	markers: [Box<[markers::MapMarkerPixel]>; markers::AMOUNT],
-	map_marker_size: u32
+	map_marker_size: u32,
 }
 
 macro_rules! memory {
@@ -81,7 +83,7 @@ impl Vision for CPUFallback {
 
 			self.cropped_map = image::RgbImage::new(w, h).into();
 			self.cropped_brq = image::RgbImage::new(brq_w, brq_h).into();
-			self.ocr_out = image::RgbImage::new(brq_w, brq_h).into();
+			self.ocr_out = image::GrayImage::new(brq_w, brq_h).into();
 			self.marked_marker_pixels = (SusRefCell::new(vec![Default::default(); w as usize * h as usize]), AtomicUsize::new(0));
 			self.scales_preprocessed = image::GrayImage::new(brq_w, brq_h).into();
 			self.lsd_image = image::GrayImage::new(w, h).into();
@@ -175,51 +177,59 @@ impl Vision for CPUFallback {
 
 		let par_cropped_brq = UnsafeSendPtr::new_const(&*cropped_brq);
 		let par_ocr_out = UnsafeSendPtr::new_mut(&mut *ocr_out);
-		(0..w).into_par_iter().map(|x| (0..h).into_par_iter().map(move |y| (x, y))).flatten().for_each(|(x, y)| {
-			let cropped_brq = unsafe { par_cropped_brq.clone().as_const() };
-			let ocr_out = unsafe { par_ocr_out.clone().as_mut() };
+		(0..w)
+			.into_par_iter()
+			.map(|x| (0..h).into_par_iter().map(move |y| (x, y)))
+			.flatten()
+			.for_each(|(x, y)| {
+				let cropped_brq = unsafe { par_cropped_brq.clone().as_const() };
+				let ocr_out = unsafe { par_ocr_out.clone().as_mut() };
 
-			let pixel = cropped_brq.get_pixel_fast(x, y);
+				let pixel = cropped_brq.get_pixel_fast(x, y);
 
-			// If the pixel passes OCR_PREPROCESS_SIMILARITY_THRESHOLD and OCR_PREPROCESS_BRIGHTNESS_THRESHOLD then OK
-			// If the pixel doesn't pass, but has a nearby pixel that does, and itself passes OCR_PREPROCESS_SIMILARITY_THRESHOLD, OCR_PREPROCESS_BRIGHTNESS_EDGE_THRESHOLD, then OK
+				// If the pixel passes OCR_PREPROCESS_SIMILARITY_THRESHOLD and OCR_PREPROCESS_BRIGHTNESS_THRESHOLD then OK
+				// If the pixel doesn't pass, but has a nearby pixel that does, and itself passes OCR_PREPROCESS_SIMILARITY_THRESHOLD, OCR_PREPROCESS_BRIGHTNESS_EDGE_THRESHOLD, then OK
 
-			let should_keep = || {
-				let diff = ocr_pixel_similarity(pixel);
-				if diff <= OCR_PREPROCESS_SIMILARITY_THRESHOLD && pixel.0.into_iter().all(|px| px >= OCR_PREPROCESS_BRIGHTNESS_THRESHOLD) {
-					return true;
-				} else if diff <= OCR_PREPROCESS_SIMILARITY_EDGE_THRESHOLD && pixel.0.into_iter().all(|px| px >= OCR_PREPROCESS_BRIGHTNESS_EDGE_THRESHOLD) {
-					for xx in x.saturating_sub(OCR_PREPROCESS_DILATE_RADIUS)..=x.saturating_add(OCR_PREPROCESS_DILATE_RADIUS).min(w - OCR_PREPROCESS_DILATE_RADIUS) {
-						for yy in y.saturating_sub(OCR_PREPROCESS_DILATE_RADIUS)..=y.saturating_add(OCR_PREPROCESS_DILATE_RADIUS).min(h - OCR_PREPROCESS_DILATE_RADIUS) {
-							let pixel = cropped_brq.get_pixel_fast(xx, yy);
+				let should_keep = || {
+					let diff = ocr_pixel_similarity(pixel);
+					if diff <= OCR_PREPROCESS_SIMILARITY_THRESHOLD && pixel.0.into_iter().all(|px| px >= OCR_PREPROCESS_BRIGHTNESS_THRESHOLD) {
+						return true;
+					} else if diff <= OCR_PREPROCESS_SIMILARITY_EDGE_THRESHOLD
+						&& pixel.0.into_iter().all(|px| px >= OCR_PREPROCESS_BRIGHTNESS_EDGE_THRESHOLD)
+					{
+						for xx in x.saturating_sub(OCR_PREPROCESS_DILATE_RADIUS)
+							..=x.saturating_add(OCR_PREPROCESS_DILATE_RADIUS).min(w - OCR_PREPROCESS_DILATE_RADIUS)
+						{
+							for yy in y.saturating_sub(OCR_PREPROCESS_DILATE_RADIUS)
+								..=y.saturating_add(OCR_PREPROCESS_DILATE_RADIUS).min(h - OCR_PREPROCESS_DILATE_RADIUS)
+							{
+								let pixel = cropped_brq.get_pixel_fast(xx, yy);
 
-							if pixel.0.into_iter().any(|px| px < OCR_PREPROCESS_BRIGHTNESS_THRESHOLD) {
-								continue;
-							}
+								if pixel.0.into_iter().any(|px| px < OCR_PREPROCESS_BRIGHTNESS_THRESHOLD) {
+									continue;
+								}
 
-							if ocr_pixel_similarity(pixel) <= OCR_PREPROCESS_SIMILARITY_THRESHOLD {
-								return true;
+								if ocr_pixel_similarity(pixel) <= OCR_PREPROCESS_SIMILARITY_THRESHOLD {
+									return true;
+								}
 							}
 						}
 					}
+
+					false
+				};
+
+				if should_keep() {
+					ocr_out.put_pixel_fast(x, y, image::Luma([255 - pixel.0[0]]));
+				} else {
+					ocr_out.put_pixel_fast(x, y, image::Luma([255]));
 				}
-
-				false
-			};
-
-			if should_keep() {
-				ocr_out.put_pixel_fast(x, y, image::Rgb([255 - pixel.0[0], 255 - pixel.0[1], 255 - pixel.0[2]]));
-			} else {
-				ocr_out.put_pixel_fast(x, y, image::Rgb([255, 255, 255]));
-			}
-		});
+			});
 
 		// TODO try polar hough lines for lsd
 		// then blur the resulting lines
 		// then draw the line again until you reach the end of the line to get line segment
 		// dont forget to subtract the blur amount(?) from the line length
-
-		//imageproc::morphology::dilate_mut(&mut *ocr_out, imageproc::distance_transform::Norm::L1, 2);
 
 		Ok((ocr_out.as_ptr(), ocr_out.len()))
 	}
@@ -264,7 +274,11 @@ impl Vision for CPUFallback {
 			if h < FIND_MARKER_HSV_RANGE_HUE[0] || h > FIND_MARKER_HSV_RANGE_HUE[1] || s < FIND_MARKER_HSV_RANGE_SAT || v < FIND_MARKER_HSV_RANGE_VIB
 			{
 				cropped_map.put_pixel_fast(x, y, image::Rgb([0, 0, 0]));
-			} else if x >= self.map_marker_size && y >= self.map_marker_size && x < cropped_map.width() - self.map_marker_size - 1 && y < cropped_map.height() - self.map_marker_size - 1 {
+			} else if x >= self.map_marker_size
+				&& y >= self.map_marker_size
+				&& x < cropped_map.width() - self.map_marker_size - 1
+				&& y < cropped_map.height() - self.map_marker_size - 1
+			{
 				marked_marker_pixels[len.fetch_add(1, std::sync::atomic::Ordering::SeqCst)] = (x, y);
 			}
 		});
@@ -448,21 +462,11 @@ impl Vision for CPUFallback {
 	fn get_debug_view(&self, choice: debug::DebugView) -> Option<Arc<image::RgbaImage>> {
 		Some(Arc::new(match choice {
 			debug::DebugView::None => return None,
-			debug::DebugView::OCRInput => {
-				self.ocr_out.borrow().convert()
-			},
-			debug::DebugView::FindScalesInput => {
-				self.scales_preprocessed.borrow().convert()
-			},
-			debug::DebugView::LSDPreprocess => {
-				self.cropped_map.borrow().convert()
-			},
-			debug::DebugView::LSDInput => {
-				self.lsd_image.borrow().convert()
-			},
-			debug::DebugView::CroppedBRQ => {
-				self.cropped_brq.borrow().convert()
-			},
+			debug::DebugView::OCRInput => self.ocr_out.borrow().convert(),
+			debug::DebugView::FindScalesInput => self.scales_preprocessed.borrow().convert(),
+			debug::DebugView::LSDPreprocess => self.cropped_map.borrow().convert(),
+			debug::DebugView::LSDInput => self.lsd_image.borrow().convert(),
+			debug::DebugView::CroppedBRQ => self.cropped_brq.borrow().convert(),
 		}))
 	}
 }

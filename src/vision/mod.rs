@@ -115,9 +115,9 @@ impl VisionState {
 						let mut scales_start_y = u32::MAX;
 						let mut scales = SmallVec::<_, 3>::new();
 
-						let ocr_image = debug_waterfall!(ocr_preprocess => vision.ocr_preprocess())?;
-						debug_assert_eq!(ocr_image.1 as u32, brq_w * brq_h * 3);
-						let ocr_image = unsafe { core::slice::from_raw_parts(ocr_image.0, ocr_image.1) };
+						let (ocr_image, ocr_len) = debug_waterfall!(ocr_preprocess => vision.ocr_preprocess())?;
+						debug_assert_eq!(ocr_len as u32, brq_w * brq_h);
+						let ocr_image = unsafe { core::slice::from_raw_parts(ocr_image, ocr_len) };
 
 						// Telling the OCR engine the DPI of the image improves accuracy
 						// `frame.dpi` comes from OS APIs where supported

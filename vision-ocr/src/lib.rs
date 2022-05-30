@@ -62,7 +62,7 @@ impl Tesseract {
 			state.clear();
 
 			unsafe {
-				smh_ocr_recognise(self.0, ppi, image.as_ptr(), width as i32, height as i32, 3, (width * 3) as i32);
+				smh_ocr_recognise(self.0, ppi, image.as_ptr(), width as i32, height as i32, 1, width as i32);
 				smh_ocr_iter(self.0, &mut *state as *mut Vec<OCRText> as *mut c_void, Self::iter_fn);
 			}
 		}

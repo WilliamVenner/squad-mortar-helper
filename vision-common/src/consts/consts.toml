@@ -20,7 +20,7 @@ value = 3
 
 [OCR_PREPROCESS_BRIGHTNESS_EDGE_THRESHOLD]
 type = "u8"
-value = 150
+value = 130
 
 [OCR_PREPROCESS_SIMILARITY_EDGE_THRESHOLD]
 type = "u16"
@@ -28,7 +28,7 @@ value = 48
 
 [OCR_PREPROCESS_DILATE_RADIUS]
 type = "u32"
-value = 2
+value = 3
 
 [FIND_MARKER_HSV_RANGE_HUE]
 type = "u16"

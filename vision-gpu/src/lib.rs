@@ -290,6 +290,7 @@ impl Vision for CUDAInstance {
 		Ok(Some((image::RgbaImage::from_vec(w, h, ui_map_host).sus_unwrap(), [x, y, w, h])))
 	}
 
+	// TODO same algorithm as cpu
 	fn ocr_preprocess(&self) -> Result<(*const u8, usize), Self::Error> {
 		let stream = memory!(&self.scales_stream);
 		let cropped_brq = memory!(&self.cropped_brq);

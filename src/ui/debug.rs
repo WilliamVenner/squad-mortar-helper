@@ -84,6 +84,10 @@ pub(super) fn menu_bar(ui: &Ui, state: &mut UIState) {
 		state.debug.minimap_bounds_overlay = !state.debug.minimap_bounds_overlay;
 	}
 
+	if imgui::MenuItem::new("Vision Debugger").selected(state.debug.vision_debugger).build(ui) {
+		state.debug.vision_debugger = !state.debug.vision_debugger;
+	}
+
 	if let Some(cv_inputs) = ui.begin_menu("Computer Vision Inputs") {
 		let debug_view = SYNCED_DEBUG_STATE.debug_view();
 
@@ -98,10 +102,6 @@ pub(super) fn menu_bar(ui: &Ui, state: &mut UIState) {
 		}
 
 		cv_inputs.end();
-	}
-
-	if imgui::MenuItem::new("Vision Debugger").selected(state.debug.vision_debugger).build(ui) {
-		state.debug.vision_debugger = !state.debug.vision_debugger;
 	}
 
 	debug.end();

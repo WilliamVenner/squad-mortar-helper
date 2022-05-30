@@ -34,10 +34,13 @@ extern "C" void smh_ocr_iter(tesseract::TessBaseAPI* const tesseract, void* cons
 
 	const tesseract::PageIteratorLevel level = tesseract::RIL_TEXTLINE;
 	if (ri != 0) {
-		while (ri->Next(level)) {
+		do {
 			OcrResult result = OcrResult {};
 
 			result.text = ri->GetUTF8Text(level);
+
+			if (!result.text) break;
+
 			result.confidence = ri->Confidence(level);
 
 			ri->BoundingBox(level, &result.x1, &result.y1, &result.x2, &result.y2);
@@ -45,7 +48,7 @@ extern "C" void smh_ocr_iter(tesseract::TessBaseAPI* const tesseract, void* cons
 			iter_fn(state, result);
 
 			delete[] result.text;
-		}
+		} while (ri->Next(level));
 
 		delete ri;
 	}
