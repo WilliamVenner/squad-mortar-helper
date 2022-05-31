@@ -38,7 +38,7 @@ pub fn add(imgui: &mut imgui::Context, hidpi_factor: f64) -> Fonts {
 		},
 	]);
 
-	let font_size = (28.0 * hidpi_factor) as f32;
+	let font_size = (20.0 * hidpi_factor) as f32;
 	let marker_label = imgui.fonts().add_font(&[
 		FontSource::TtfData {
 			data: INTER_BOLD,

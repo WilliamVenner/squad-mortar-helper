@@ -158,7 +158,7 @@ function draw_marker(ctx, marker, color) {
 	ctx.lineTo(marker.p1x, marker.p1y);
 	ctx.stroke();
 
-	ctx.font = '600 2em \'Inter\', sans-serif';
+	ctx.font = '600 1.5em \'Inter\', sans-serif';
 	ctx.textAlign = 'center';
 	ctx.textBaseline = 'top';
 	ctx.fillStyle = 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
@@ -172,14 +172,6 @@ function draw_marker(ctx, marker, color) {
 	var alt_delta = calc_alt_delta([marker.p0x, marker.p0y], [marker.p1x, marker.p1y]);
 	var milliradians = milliradians_from_meters(meters, alt_delta);
 
-	var meters_text = Math.round(meters) + 'm';
-	var milliradians_text = isNaN(milliradians) ? 'RANGE!' : (Math.round(milliradians) + '°');
-	var alt_delta_text = (isNaN(alt_delta) || alt_delta === null) ? '' : (Math.round(alt_delta) + 'm alt');
-
-	var meters_text_height = ctx.measureText(meters_text).actualBoundingBoxDescent;
-	var milliradians_text_height = ctx.measureText(milliradians_text).actualBoundingBoxDescent;
-
-	var midpoint = [(marker.p0x + marker.p1x) / 2, (marker.p0y + marker.p1y) / 2];
 	var angle = Math.atan2(marker.p0y - marker.p1y, marker.p0x - marker.p1x);
 	if (angle >= Math.PI / 2) {
 		angle -= Math.PI;
@@ -187,15 +179,55 @@ function draw_marker(ctx, marker, color) {
 		angle += Math.PI;
 	}
 
+	var bearing = angle * 180 / Math.PI;
+	if (bearing > 0) {
+		bearing -= 90;
+		if (bearing < 0) {
+			bearing += 360;
+		}
+	} else {
+		bearing += 270;
+	}
+	var bearing_bck = (bearing + 180) % 360;
+
+	var meters_text = Math.round(meters) + 'm';
+	var milliradians_text = isNaN(milliradians) ? 'RANGE!' : (Math.round(milliradians) + ' mils');
+	var alt_delta_text = (isNaN(alt_delta) || alt_delta === null) ? '' : (Math.round(alt_delta) + 'm alt');
+	var bearing_text;
+	var bearing_bck_text;
+	if (angle >= -(Math.PI / 2) && angle <= Math.PI / 2) {
+		bearing_text = '-> ' + Math.round(bearing_bck) + '°';
+		bearing_bck_text = '<- ' + Math.round(bearing) + '°';
+	} else {
+		bearing_text = '-> ' + Math.round(bearing) + '°';
+		bearing_bck_text = '<- ' + Math.round(bearing_bck) + '°';
+	}
+
+	var meters_text_height = ctx.measureText(meters_text).actualBoundingBoxDescent;
+	var milliradians_text_height = ctx.measureText(milliradians_text).actualBoundingBoxDescent;
+	var alt_delta_text_height = ctx.measureText(alt_delta_text).actualBoundingBoxDescent;
+	var bearing_text_height = ctx.measureText(bearing_text).actualBoundingBoxDescent;
+
+	var midpoint = [(marker.p0x + marker.p1x) / 2, (marker.p0y + marker.p1y) / 2];
+
 	ctx.save();
 	ctx.translate(midpoint[0], midpoint[1]);
 	ctx.rotate(angle);
 
 	var line_height = meters_text_height * 0.35;
 
-	ctx.fillText(meters_text, 0, line_height);
-	ctx.fillText(milliradians_text, 0, line_height + line_height + meters_text_height);
-	ctx.fillText(alt_delta_text, 0, line_height + line_height + meters_text_height + line_height + milliradians_text_height);
+	var i = line_height;
+	ctx.fillText(meters_text, 0, i);
+	i += line_height + meters_text_height;
+	ctx.fillText(milliradians_text, 0, i);
+	i += line_height + milliradians_text_height;
+	if (alt_delta_text) {
+		ctx.fillText(alt_delta_text, 0, i);
+		i += line_height + alt_delta_text_height;
+	}
+	ctx.fillText(bearing_text, 0, i);
+	i += line_height + bearing_text_height;
+	ctx.fillText(bearing_bck_text, 0, i);
 
 	ctx.restore();
 }

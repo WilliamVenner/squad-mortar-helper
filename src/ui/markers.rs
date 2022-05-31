@@ -57,13 +57,13 @@ pub(super) fn draw(state: &UIState, ui: &Ui, marker: &Marker, color: [f32; 3], d
 
 		let milliradians = squadex::milliradians::calc(meters, alt_delta.map(|d| d as f64).unwrap_or_default());
 		if milliradians.is_nan() {
-			info.push_str("RANGE!\n");
+			info.push_str("RANGE!");
 		} else {
-			writeln!(info, "{:.0}°", milliradians).unwrap();
+			write!(info, "{:.0} mils", milliradians).unwrap();
 		}
 
 		if let Some(alt_delta) = alt_delta {
-			write!(info, "{}m alt", alt_delta).unwrap();
+			write!(info, "\n{}m alt", alt_delta).unwrap();
 		}
 
 		let font = ui.push_font(state.fonts.marker_label);
@@ -72,6 +72,26 @@ pub(super) fn draw(state: &UIState, ui: &Ui, marker: &Marker, color: [f32; 3], d
 		let text_pos = Point::new(midpoint.x - (text_size.x / 2.0), midpoint.y);
 
 		let mut angle = f32::atan2(p0[1] - p1[1], p0[0] - p1[0]);
+
+		let mut bearing = angle.to_degrees();
+		if bearing > 0.0 {
+			bearing -= 90.0;
+			if bearing < 0.0 {
+				bearing += 360.0;
+			}
+		} else {
+			bearing += 270.0;
+		}
+		let bearing_bck = (bearing + 180.0) % 360.0;
+
+		if (-core::f32::consts::FRAC_PI_2..=core::f32::consts::FRAC_PI_2).contains(&angle) {
+			write!(info, "\n-> {:.0}°", bearing_bck).unwrap();
+			write!(info, "\n<- {:.0}°", bearing).unwrap();
+		} else {
+			write!(info, "\n-> {:.0}°", bearing).unwrap();
+			write!(info, "\n<- {:.0}°", bearing_bck).unwrap();
+		}
+
 		if angle >= core::f32::consts::FRAC_PI_2 {
 			angle -= core::f32::consts::PI;
 		} else if angle <= -core::f32::consts::FRAC_PI_2 {
