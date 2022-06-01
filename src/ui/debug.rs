@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 use super::*;
 use smh_vision_common::debug::*;
 
@@ -37,11 +39,57 @@ impl SyncedDebugState {
 	}
 }
 
+lazy_static! {
+	static ref FAKE_INPUT_SELECTION: Mutex<Option<image::ImageBuffer<image::Bgra<u8>, Box<[u8]>>>> = Mutex::new(None);
+}
+
+pub struct FakeInputs {
+	selected: Option<Rc<Path>>,
+	choices: Box<[(Rc<Path>, Box<str>)]>,
+}
+impl FakeInputs {
+	#[inline]
+	pub fn selected() -> Option<image::ImageBuffer<image::Bgra<u8>, Box<[u8]>>> {
+		FAKE_INPUT_SELECTION.lock().as_ref().cloned()
+	}
+}
+impl Default for FakeInputs {
+	fn default() -> Self {
+		Self {
+			selected: None,
+			choices: {
+				let mut choices = std::fs::read_dir("vision-common/samples")
+					.map(|choices| {
+						choices
+							.filter_map(|entry| entry.ok())
+							.filter_map(|entry| Some((entry.file_type().ok()?, entry)))
+							.filter_map(|entry| {
+								if entry.0.is_file() {
+									Some((Rc::from(entry.1.path()), entry.1.path().file_name()?.to_string_lossy().into_owned().into_boxed_str()))
+								} else {
+									None
+								}
+							})
+							.collect::<Box<[_]>>()
+					})
+					.unwrap_or_default();
+
+				choices.sort_unstable_by(|a, b| a.1.deref().cmp(&*b.1));
+				choices
+			},
+		}
+	}
+}
+
 #[derive(Default)]
 pub struct DebugState {
 	vision_debugger: bool,
-	fps: bool,
 	minimap_bounds_overlay: bool,
+
+	fps: bool,
+	fps_bar_w: f32,
+
+	pub fake_inputs: FakeInputs,
 }
 
 #[derive(Debug, Default)]
@@ -88,7 +136,7 @@ pub(super) fn menu_bar(ui: &Ui, state: &mut UIState) {
 		state.debug.vision_debugger = !state.debug.vision_debugger;
 	}
 
-	if let Some(cv_inputs) = ui.begin_menu("Computer Vision Inputs") {
+	if let Some(cv_inputs) = ui.begin_menu("Computer Vision Outputs") {
 		let debug_view = SYNCED_DEBUG_STATE.debug_view();
 
 		if imgui::MenuItem::new("Map").selected(debug_view == DebugView::None).build(ui) {
@@ -102,6 +150,33 @@ pub(super) fn menu_bar(ui: &Ui, state: &mut UIState) {
 		}
 
 		cv_inputs.end();
+	}
+
+	if !state.debug.fake_inputs.choices.is_empty() {
+		if let Some(cv_inputs) = ui.begin_menu("Fake Input") {
+			let selected = &mut state.debug.fake_inputs.selected;
+			if imgui::MenuItem::new("None").selected(selected.is_none()).build(ui) {
+				*FAKE_INPUT_SELECTION.lock() = None;
+				*selected = None;
+			}
+
+			for choice in state.debug.fake_inputs.choices.iter() {
+				if imgui::MenuItem::new(&choice.1)
+					.selected(selected.as_ref().map(|selected| Rc::ptr_eq(selected, &choice.0)).unwrap_or_default())
+					.build(ui)
+				{
+					log::info!("Reading fake input image into memory: {}", choice.0.display());
+
+					if let Some(image) = std::fs::read(&*choice.0).ok().and_then(|image| image::load_from_memory(&image).ok()).map(|image| image.into_bgra8()) {
+						let image = image::ImageBuffer::from_raw(image.width(), image.height(), image.into_raw().into_boxed_slice()).unwrap();
+						*FAKE_INPUT_SELECTION.lock() = Some(image);
+						*selected = Some(choice.0.clone());
+					}
+				}
+			}
+
+			cv_inputs.end();
+		}
 	}
 
 	debug.end();
@@ -173,6 +248,9 @@ fn draw_fps(state: &mut UIState, ui: &Ui, entire_frame: Duration) {
 			ui.set_cursor_screen_pos(relative![ui, 15.0, 0.0]);
 			ui.text(&text);
 		}
+
+		state.debug.fps_bar_w = bar_w.max(state.debug.fps_bar_w).min(state.display_size[0] - (ui.window_padding()[0] * 2.0));
+		bar_w = state.debug.fps_bar_w;
 
 		if !total.is_zero() {
 			let mut x = 0.;
@@ -316,7 +394,10 @@ pub(super) fn render_vision_debugger(state: &mut UIState, ui: &Ui) {
 
 	let window_padding = ui.window_padding();
 
-	let window_size = [150.0, ui.calc_text_size_with_opts(&text, false, 150.0 - (window_padding[0] * 2.0))[1] + 10.0 + ui.text_line_height() + window_padding[1]];
+	let window_size = [
+		150.0,
+		ui.calc_text_size_with_opts(&text, false, 150.0 - (window_padding[0] * 2.0))[1] + 10.0 + ui.text_line_height() + window_padding[1],
+	];
 
 	font.end();
 

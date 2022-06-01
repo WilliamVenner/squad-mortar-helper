@@ -30,17 +30,29 @@ value = 48
 type = "u32"
 value = 3
 
-[FIND_MARKER_HSV_RANGE_HUE]
+[ALPHA_MARKER_COLOR_HSV]
 type = "u16"
-value = [84, 140]
+value = [105, 100, 100]
 
-[FIND_MARKER_HSV_RANGE_SAT]
-type = "u8"
-value = 50
+[BRAVO_MARKER_COLOR_HSV]
+type = "u16"
+value = [285, 46, 85]
 
-[FIND_MARKER_HSV_RANGE_VIB]
+[CHARLIE_MARKER_COLOR_HSV]
+type = "u16"
+value = [158, 60, 91]
+
+[FIND_MARKER_HSV_HUE_TOLERANCE]
+type = "u16"
+value = 15
+
+[FIND_MARKER_HSV_SAT_TOLERANCE]
 type = "u8"
-value = 75
+value = 25
+
+[FIND_MARKER_HSV_VIB_TOLERANCE]
+type = "u8"
+value = 25
 
 [MAP_MARKER_POI_LOCATION]
 type = "f32"

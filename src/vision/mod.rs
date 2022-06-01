@@ -234,7 +234,7 @@ pub fn start() {
 			break;
 		}
 
-		if let Some(frame) = capture::fresh_frame() {
+		if let Some(frame) = ui::debug::FakeInputs::selected().map(|image| Frame { dpi: None, image }).or_else(|| capture::fresh_frame()) {
 			let last_frame = Instant::now();
 
 			let mut debug_box = DebugBox::default();

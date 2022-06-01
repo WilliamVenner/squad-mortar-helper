@@ -20,7 +20,7 @@ macro_rules! par_iter_pixels {
 			let self_ = unsafe { self_.as_const() };
 
 			#[cfg(debug_assertions)]
-			let p = self_.get_pixel(x_, y_);
+			let p = self_.get_pixel(x_, y_).clone();
 
 			#[cfg(not(debug_assertions))]
 			let p = unsafe { self_.unsafe_get_pixel(x_, y_) };
@@ -36,7 +36,7 @@ macro_rules! par_iter_pixels {
 			let self_ = unsafe { self_.as_const() };
 
 			#[cfg(debug_assertions)]
-			let p = self_.get_pixel(x_, y_);
+			let p = self_.get_pixel(x_, y_).clone();
 
 			#[cfg(not(debug_assertions))]
 			let p = unsafe { self_.unsafe_get_pixel(x_, y_) };

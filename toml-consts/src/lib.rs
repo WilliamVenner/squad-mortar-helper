@@ -34,7 +34,7 @@ macro_rules! define_types {
 						if let Some(values) = value.as_array().cloned() {
 							let len = values.len();
 
-							write!(fmt, concat!("const __device__ ", $c, " {}[{}] = {{"), name, len)?;
+							write!(fmt, concat!("constexpr __device__ ", $c, " {}[{}] = {{"), name, len)?;
 
 							let mut values = values.into_iter();
 
@@ -52,7 +52,7 @@ macro_rules! define_types {
 								Some(value) => value as $rust,
 								None => panic!(concat!("expected ", $toml, " for {}"), name)
 							};
-							writeln!(fmt, concat!("const __device__ ", $c, " {} = {};"), name, value)
+							writeln!(fmt, concat!("constexpr __device__ ", $c, " {} = {};"), name, value)
 						}
 					}),*
 				}

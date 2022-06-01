@@ -46,6 +46,7 @@ scrap = "0"
 crc32fast = "1"
 magic_static = "3"
 thiserror = "1"
+lazy_static = "1"
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

@@ -263,9 +263,7 @@ impl Vision for CPUFallback {
 			let cropped_map = unsafe { par_cropped_map.clone().as_mut() };
 			let marked_marker_pixels = unsafe { par_marked_marker_pixels.clone().as_mut() };
 
-			let (h, s, v) = pixel.to_hsv();
-			if h < FIND_MARKER_HSV_RANGE_HUE[0] || h > FIND_MARKER_HSV_RANGE_HUE[1] || s < FIND_MARKER_HSV_RANGE_SAT || v < FIND_MARKER_HSV_RANGE_VIB
-			{
+			if !markers::is_map_marker_color(pixel) {
 				cropped_map.put_pixel_fast(x, y, image::Rgb([0, 0, 0]));
 			} else if x >= self.map_marker_size
 				&& y >= self.map_marker_size
@@ -356,17 +354,11 @@ impl Vision for CPUFallback {
 		let cropped_map = memory!(&self.cropped_map);
 		let mut lsd_image = memory!(&mut self.lsd_image);
 
-		// Isolate green pixels
 		let par_lsd_image = UnsafeSendPtr::new_mut(&mut *lsd_image);
 		par_iter_pixels!(cropped_map).for_each(move |(x, y, pixel)| {
 			let lsd_image = unsafe { par_lsd_image.clone().as_mut() };
 
-			let (h, s, v) = pixel.to_hsv();
-			if h >= FIND_MARKER_HSV_RANGE_HUE[0]
-				&& h <= FIND_MARKER_HSV_RANGE_HUE[1]
-				&& s >= FIND_MARKER_HSV_RANGE_SAT
-				&& v >= FIND_MARKER_HSV_RANGE_VIB
-			{
+			if markers::is_map_marker_color(pixel) {
 				lsd_image.put_pixel_fast(x, y, image::Luma([255]));
 			} else {
 				lsd_image.put_pixel_fast(x, y, image::Luma([0]));

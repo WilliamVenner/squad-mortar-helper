@@ -6,6 +6,9 @@ compile_error!("Should be built without +crt-static to reduce binary size. Squad
 #[macro_use]
 extern crate magic_static;
 
+#[macro_use]
+extern crate lazy_static;
+
 mod capture;
 mod settings;
 mod squadex;
