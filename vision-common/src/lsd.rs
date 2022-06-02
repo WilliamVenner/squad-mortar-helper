@@ -105,3 +105,5 @@ where
 
 	Ok(lines)
 }
+
+// TODO somehow filter out circles

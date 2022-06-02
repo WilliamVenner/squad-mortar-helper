@@ -1,8 +1,10 @@
-use std::{process::Command, path::Path};
+use std::{path::Path, process::Command};
 
 fn cuda() {
 	println!("cargo:rerun-if-changed=build.rs");
 	println!("cargo:rerun-if-changed=cuda/cuda.cu");
+	println!("cargo:rerun-if-changed=cuda/dilate.h");
+	println!("cargo:rerun-if-changed=cuda/dilate.cpp");
 	println!("cargo:rerun-if-changed=../vision-common/src/consts/consts.cu");
 	println!("cargo:rerun-if-env-changed=CUDA_LIBRARY_PATH");
 
@@ -42,12 +44,13 @@ fn cuda() {
 		}
 
 		let mut nvcc = Command::new("nvcc");
-		nvcc
-			.args(&["--pre-include", "../../vision-common/src/consts/consts.cu"])
-			.arg("-ccbin").arg(&ccbin)
+		nvcc.args(&["--pre-include", "../../vision-common/src/consts/consts.cu"])
+			.arg("-ccbin")
+			.arg(&ccbin)
 			.arg("--ptx")
 			.arg(&path)
-			.arg("-o").arg(&ptx_path);
+			.arg("-o")
+			.arg(&ptx_path);
 
 		if cfg!(any(debug_assertions, feature = "force-gpu-debug")) {
 			nvcc.args(&["--device-debug"]);
@@ -56,7 +59,8 @@ fn cuda() {
 			nvcc.args(&["-O", "3"]).args(&["-D", "NDEBUG"]);
 		}
 		if let Some(compute_capability) = compute_capability {
-			nvcc.arg("-gencode").arg(&format!("arch=compute_{cc},code=sm_{cc}", cc = compute_capability));
+			nvcc.arg("-gencode")
+				.arg(&format!("arch=compute_{cc},code=sm_{cc}", cc = compute_capability));
 		}
 
 		let output = nvcc.output().expect("Failed to run nvcc");
@@ -74,6 +78,18 @@ fn cuda() {
 			panic!("compilation to {} succeeded, but the file is missing?", ptx_path.display());
 		}
 	}
+
+	cc::Build::new()
+		.cuda(true)
+		.cargo_metadata(true)
+		.flag("-lnppc")
+		.flag("-lnppim")
+		.include("cuda")
+		.file("cuda/dilate.cpp")
+		.compile("gpu_dilate");
+
+	println!("cargo:rustc-link-lib=static=nppim");
+	println!("cargo:rustc-link-search=native={}", std::env::var("CUDA_LIBRARY_PATH").expect("Expected CUDA_LIBRARY_PATH to be set"));
 }
 
 fn main() {

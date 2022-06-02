@@ -639,10 +639,12 @@ extern "C" __global__ void find_longest_line(
 	Line *const longest_lines)
 {
 	__shared__ float longest_line_length;
-	if (threadIdx.x == 0)
+	if (threadIdx.x == 0) [[unlikely]]
 	{
 		longest_line_length = 0.0f;
 	}
+
+	__threadfence_block();
 
 	const float theta = ((float)(threadIdx.x + blockIdx.x * blockDim.x) / 10.0) * CUDART_PI_F / 180.0;
 
@@ -654,7 +656,8 @@ extern "C" __global__ void find_longest_line(
 	float x_end = x;
 	float y_end = y;
 
-	float gap = 0.0;
+	uint32_t gap_count = 0;
+	uint32_t gap = 0;
 	float gap_x = 0.0;
 	float gap_y = 0.0;
 
@@ -666,32 +669,36 @@ extern "C" __global__ void find_longest_line(
 	while (x >= 0.0 && y >= 0.0 && x < w && y < h)
 		[[likely]]
 		{
-			if (input[(uint32_t)y * w + (uint32_t)x] == 255)
-			{
-				// there's no gap, reset state
-				gap = 0.0;
-				gap_x = 0.0;
-				gap_y = 0.0;
-			}
-			else if (gap >= max_gap)
-			{
-				// gap didn't close, abort
-				// restore saved state
-				x = gap_x;
-				y = gap_y;
-				break;
-			}
-			else if (gap == 0.0)
-			{
-				// save the state of (x, y) so we can restore it later if the gap isn't closed
-				gap = 1.0;
-				gap_x = x;
-				gap_y = y;
-			}
-			else
-			{
-				// keep going in case there is a gap that closes
-				gap += 1.0;
+			if (gap == 0) {
+				if (input[(uint32_t)y * w + (uint32_t)x] != 255)
+				{
+					// save the state of (x, y) so we can restore it later if the gap isn't closed
+					gap = 1;
+					gap_x = x;
+					gap_y = y;
+					gap_count++;
+				}
+			} else {
+				if (input[(uint32_t)y * w + (uint32_t)x] == 255)
+				{
+					// there's no gap, reset state
+					gap = 0.0;
+					gap_x = 0.0;
+					gap_y = 0.0;
+				}
+				else if (gap >= max_gap || gap_count >= max_gap)
+				{
+					// gap didn't close, or too many gaps on this line, abort
+					// restore saved state
+					x = gap_x;
+					y = gap_y;
+					break;
+				}
+				else
+				{
+					// keep going in case there is a gap that closes
+					gap++;
+				}
 			}
 
 			x_offset += dx;
@@ -708,7 +715,8 @@ extern "C" __global__ void find_longest_line(
 
 	const Line line = Line{
 		Point{x_start, y_start},
-		Point{x_end, y_end}};
+		Point{x_end, y_end}
+	};
 
 	const float length = ((line.p0.x - line.p1.x) * (line.p0.x - line.p1.x)) + ((line.p0.y - line.p1.y) * (line.p0.y - line.p1.y));
 

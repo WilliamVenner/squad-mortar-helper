@@ -48,6 +48,8 @@ struct GPUMemory {
 	marked_map_marker_pixels_count: DeviceBox<u32>,
 
 	lsd_image: SusRefCell<PinnedGPUImage<u8, DeviceBuffer<u8>, image::Luma<u8>>>,
+	lsd_image_dilate: DeviceBuffer<u8>,
+	lsd_kernel_dilate: DeviceBuffer<u8>,
 	longest_lines: DeviceBuffer<GPULine<f32>>,
 
 	crop_to_map_streams: (Stream, Stream),
@@ -93,6 +95,8 @@ impl GPUMemory {
 				marked_map_marker_pixels_count: DeviceBox::uninitialized()?,
 
 				lsd_image: PinnedGPUImage::uninitialized(w, h, 1)?.into(),
+				lsd_image_dilate: DeviceBuffer::uninitialized(w as usize * h as usize)?,
+				lsd_kernel_dilate: DeviceBuffer::from_slice(&[255; 2 * 2])?,
 				longest_lines: DeviceBuffer::uninitialized(8)?,
 			})
 		}
@@ -424,10 +428,25 @@ impl Vision for CUDAInstance {
 	}
 
 	fn mask_marker_lines(&self) -> Result<(), Self::Error> {
+		#[link(name = "gpu_dilate", kind = "static")]
+		extern "C" {
+			fn gpu_dilate(
+				input: DevicePointer<u8>,
+				output: DevicePointer<u8>,
+				w: u32,
+				h: u32,
+				kernel: DevicePointer<u8>,
+				kernel_w: u32,
+				kernel_h: u32
+			) -> i32;
+		}
+
 		let stream = memory!(&self.markers_stream);
 
 		let cropped_map = memory!(&self.cropped_map);
 		let mut lsd_image = memory!(&self.lsd_image).borrow_mut();
+		let lsd_image_dilate = memory!(&self.lsd_image_dilate);
+		let lsd_kernel_dilate = memory!(&self.lsd_kernel_dilate);
 
 		unsafe {
 			let (grid, block) = gpu_2d_kernel![<<<[cropped_map.width, cropped_map.height], (8, 8)>>>];
@@ -435,14 +454,20 @@ impl Vision for CUDAInstance {
 				self.mask_marker_lines<<<grid, block, 0, stream>>>(
 					cropped_map.as_device_ptr(),
 					cropped_map.width, cropped_map.height,
-					lsd_image.as_device_ptr()
+					lsd_image_dilate.as_device_ptr()
 				)
 			)?;
+
+			stream.synchronize()?;
+
+			let res = gpu_dilate(lsd_image_dilate.as_device_ptr(), lsd_image.as_device_ptr(), lsd_image.width, lsd_image.height, lsd_kernel_dilate.as_device_ptr(), 2, 2);
+			if res != 0 {
+				return Err(anyhow::anyhow!("nppiDilate_8u_C1R error {res}"));
+			}
 		}
 
-		lsd_image.async_copy_from_gpu(stream)?;
-
-		stream.synchronize()?;
+		// Copy from GPU to CPU so we can access the memory later
+		lsd_image.copy_from_gpu()?;
 
 		Ok(())
 	}

@@ -88,6 +88,10 @@ impl VisionState {
 						// Isolate green pixels, i.e., squad map markers
 						debug_waterfall!(isolate_map_markers => vision.isolate_map_markers())?;
 
+						/*
+						DISABLED: Changes to the isolate_map_markers algorithm makes this mostly unnecessary.
+						It also doesn't really make sense if there are multiple markers on the map.
+
 						// We will now perform a template match using every map marker type as a template. We need to do this because it messes with the line segment detection.
 						// I.e., we want to reduce the amount of points on the image that aren't part of a line.
 						// We're lucky because on the Squad map, there will only ever be one green map icon marker, so we can just select the template match with the minimum SAD.
@@ -97,6 +101,7 @@ impl VisionState {
 						if w >= map_marker_size && h >= map_marker_size {
 							debug_waterfall!(filter_map_marker_icons => vision.filter_map_marker_icons())?;
 						}
+						*/
 
 						// Perform line segment detection on the map to find the map marker lines (i.e. what the player/squad leader is ordering mortar fire on)
 						debug_waterfall!(mask_marker_lines => vision.mask_marker_lines())?;
@@ -234,7 +239,7 @@ pub fn start() {
 			break;
 		}
 
-		if let Some(frame) = ui::debug::FakeInputs::selected().map(|image| Frame { dpi: None, image }).or_else(|| capture::fresh_frame()) {
+		if let Some(frame) = ui::debug::FakeInputs::selected().map(|image| Frame { dpi: None, image }).or_else(capture::fresh_frame) {
 			let last_frame = Instant::now();
 
 			let mut debug_box = DebugBox::default();
