@@ -1,14 +1,14 @@
+use futures_util::{SinkExt, StreamExt};
+use image::EncodableLayout;
 use smh_heightmap_ripper::Heightmap;
-use smh_util::{image, log, async_channel, anyhow, FromBytesSlice, Rect};
-use futures_util::{StreamExt, SinkExt};
+use smh_util::{anyhow, async_channel, image, log, FromBytesSlice, Rect};
 use std::{
 	net::{Ipv4Addr, SocketAddr, SocketAddrV4},
-	thread::JoinHandle,
 	sync::Arc,
-	time::Duration
+	thread::JoinHandle,
+	time::Duration,
 };
-use tokio::net::{TcpListener, TcpStream};
-use image::EncodableLayout;
+use tokio::net::{TcpListener, TcpStream, UdpSocket};
 
 // TODO use byteorder
 
@@ -32,7 +32,7 @@ mod ws;
 
 pub enum Interaction {
 	AddCustomMarker([[f32; 2]; 2]),
-	DeleteCustomMarker(u32)
+	DeleteCustomMarker(u32),
 }
 impl Interaction {
 	pub fn deserialize(data: &[u8]) -> Option<Self> {
@@ -50,13 +50,11 @@ impl Interaction {
 					return None;
 				}
 
-				Some(Interaction::AddCustomMarker(
-					[
-						[f32::from_le_bytes_slice(&data[0..4]), f32::from_le_bytes_slice(&data[4..8])],
-						[f32::from_le_bytes_slice(&data[8..12]), f32::from_le_bytes_slice(&data[12..16])],
-					]
-				))
-			},
+				Some(Interaction::AddCustomMarker([
+					[f32::from_le_bytes_slice(&data[0..4]), f32::from_le_bytes_slice(&data[4..8])],
+					[f32::from_le_bytes_slice(&data[8..12]), f32::from_le_bytes_slice(&data[12..16])],
+				]))
+			}
 			2 => {
 				if data.len() != core::mem::size_of::<u32>() {
 					log::warn!("Invalid custom marker data length");
@@ -64,7 +62,7 @@ impl Interaction {
 				}
 
 				Some(Interaction::DeleteCustomMarker(u32::from_le_bytes_slice(&data[0..4])))
-			},
+			}
 			_ => {
 				log::warn!("Unknown interaction type: {interaction}");
 				None
@@ -215,7 +213,7 @@ pub struct EventData {
 	pub custom_markers: Box<[[[f32; 2]; 2]]>,
 	pub meters_to_px_ratio: Option<f64>,
 	pub minimap_bounds: Option<Rect<u32>>,
-	pub heightmap: Option<smh_heightmap_ripper::Heightmap>
+	pub heightmap: Option<smh_heightmap_ripper::Heightmap>,
 }
 
 pub struct WebServer {
@@ -228,7 +226,7 @@ pub struct WebServer {
 	event_tx: tokio::sync::mpsc::Sender<Arc<Event>>,
 	interaction_rx: tokio::sync::mpsc::Receiver<Interaction>,
 
-	num_clients: Arc<()>
+	num_clients: Arc<()>,
 }
 impl WebServer {
 	pub fn shutdown(self) {}
@@ -294,7 +292,12 @@ impl Drop for WebServer {
 	}
 }
 
-async fn server(port: u16, wake_ui: fn(), server_tx: &mut Option<tokio::sync::oneshot::Sender<Result<WebServer, AnyError>>>, mut event_data: EventData) -> Result<(), AnyError> {
+async fn server(
+	port: u16,
+	wake_ui: fn(),
+	server_tx: &mut Option<tokio::sync::oneshot::Sender<Result<WebServer, AnyError>>>,
+	mut event_data: EventData,
+) -> Result<(), AnyError> {
 	let (shutdown_tx, mut shutdown_rx) = tokio::sync::mpsc::channel(1);
 	let (interaction_tx, interaction_rx) = tokio::sync::mpsc::channel(8);
 	let (event_tx, mut event_rx) = tokio::sync::mpsc::channel(8);
@@ -308,11 +311,13 @@ async fn server(port: u16, wake_ui: fn(), server_tx: &mut Option<tokio::sync::on
 	let http = TcpListener::bind(addr).await?;
 	log::info!("HTTP server listening on {}", http.local_addr()?);
 
+	let http_addr = http.local_addr()?;
 	let ws_port = ws.local_addr()?.port().to_string();
 
 	let num_clients = Arc::new(());
 
-	server_tx.take()
+	server_tx
+		.take()
 		.unwrap()
 		.send(Ok(WebServer {
 			num_clients: num_clients.clone(),
@@ -321,12 +326,29 @@ async fn server(port: u16, wake_ui: fn(), server_tx: &mut Option<tokio::sync::on
 			interaction_rx,
 			shutdown_tx,
 			addr: {
-				let mut addr = http.local_addr()?;
-				match local_ip_address::local_ip() {
-					Ok(local_ip) => addr.set_ip(local_ip),
-					Err(err) => log::warn!("Error getting local IP address: {err}"),
+				let addr = match UdpSocket::bind("0.0.0.0:0").await.ok() {
+					None => None,
+					Some(socket) => tokio::time::timeout(Duration::from_secs(2), socket.connect("8.8.8.8:80"))
+						.await
+						.ok()
+						.and_then(Result::ok)
+						.and_then(|_| {
+							let mut addr = http_addr;
+							addr.set_ip(socket.local_addr().ok()?.ip());
+							Some(addr)
+						})
+						.or_else(|| {
+							let mut addr = http_addr;
+							addr.set_ip(local_ip_address::local_ip().ok()?);
+							Some(addr)
+						}),
+				};
+
+				if let Some(addr) = addr {
+					format!("http://{addr}").into_boxed_str()
+				} else {
+					format!("http://localhost:{port}").into_boxed_str()
 				}
-				format!("http://{addr}").into_boxed_str()
 			},
 		}))
 		.ok();

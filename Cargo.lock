@@ -2919,7 +2919,7 @@ dependencies = [
 
 [[package]]
 name = "squad-mortar-helper"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "backtrace",
  "build-time",
