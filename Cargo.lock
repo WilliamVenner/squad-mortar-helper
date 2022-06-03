@@ -2903,6 +2903,7 @@ dependencies = [
 name = "smh-vision-gpu"
 version = "0.1.0"
 dependencies = [
+ "build_cfg",
  "bytemuck",
  "cc",
  "cust",

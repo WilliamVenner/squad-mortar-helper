@@ -1,3 +1,5 @@
+#[macro_use] extern crate build_cfg;
+
 use std::{path::Path, process::Command};
 
 fn cuda() {
@@ -8,16 +10,29 @@ fn cuda() {
 	println!("cargo:rerun-if-changed=../vision-common/src/consts/consts.cu");
 	println!("cargo:rerun-if-env-changed=CUDA_LIBRARY_PATH");
 
-	cc::Build::new()
-		.cuda(true)
-		.cargo_metadata(true)
-		.flag("-lnppc")
-		.flag("-lnppim")
-		.include("cuda")
-		.file("cuda/dilate.cpp")
-		.compile("gpu_dilate");
+	if build_cfg!(target_os = "windows") {
+		cc::Build::new()
+			.cuda(true)
+			.cargo_metadata(true)
+			.flag("-lnppc")
+			.flag("-lnppim")
+			.include("cuda")
+			.file("cuda/dilate.cpp")
+			.compile("gpu_dilate");
 
-	println!("cargo:rustc-link-lib=static=nppim");
+		println!("cargo:rustc-link-lib=static=nppim");
+	} else {
+		cc::Build::new()
+			.cuda(true)
+			.cargo_metadata(true)
+			.flag("-lnppc_static")
+			.flag("-lnppim_static")
+			.include("cuda")
+			.file("cuda/dilate.cpp")
+			.compile("gpu_dilate");
+
+		println!("cargo:rustc-link-lib=static=nppim_static");
+	}
 
 	if cfg!(feature = "gpu-ptx-vendored") {
 		return;
@@ -91,6 +106,7 @@ fn cuda() {
 	}
 }
 
+#[build_cfg_main]
 fn main() {
 	println!("cargo:rerun-if-env-changed=PATH");
 	println!("cargo:rerun-if-env-changed=PATHEXT");
