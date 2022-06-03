@@ -132,17 +132,24 @@ function calc_alt_delta(p0, p1) {
 	var p1_xf = (p1[0] - fitted_minimap_viewport.left) / (fitted_minimap_viewport.right - fitted_minimap_viewport.left);
 	var p1_yf = (p1[1] - fitted_minimap_viewport.top) / (fitted_minimap_viewport.bottom - fitted_minimap_viewport.top);
 
-	var p0_x = Math.round(p0_xf * heightmap.width);
-	var p0_y = Math.round(p0_yf * heightmap.height);
+	var p0_x = p0_xf * heightmap.width;
+	var p0_y = p0_yf * heightmap.height;
+	var p1_x = p1_xf * heightmap.width;
+	var p1_y = p1_yf * heightmap.height;
 
-	var p1_x = Math.round(p1_xf * heightmap.width);
-	var p1_y = Math.round(p1_yf * heightmap.height);
+	// The heightmap can be used to calculate a more accurate length than eyeballing the map scales
+	var meters = Math.sqrt(((p0_x - p1_x) ** 2) + ((p0_y - p1_y) ** 2));
+
+	var p0_x = Math.round(p0_x);
+	var p0_y = Math.round(p0_y);
+	var p1_x = Math.round(p1_x);
+	var p1_y = Math.round(p1_y);
 
 	if (p0_x >= 0 && p0_y >= 0 && p1_x >= 0 && p1_y >= 0 && p0_x < heightmap.width && p0_y < heightmap.height && p1_x < heightmap.width && p1_y < heightmap.height) {
 		var p0 = heightmap.data[p0_y * heightmap.width + p0_x];
 		var p1 = heightmap.data[p1_y * heightmap.width + p1_x];
 
-		return Math.round(Math.abs(p0 - p1) / heightmap.scale);
+		return [Math.round(Math.abs(p0 - p1) / heightmap.scale), meters];
 	} else {
 		return null;
 	}
@@ -167,9 +174,18 @@ function draw_marker(ctx, marker, color) {
 		return;
 	}
 
-	var dist = Math.sqrt(((marker.p0x - marker.p1x) ** 2) + ((marker.p0y - marker.p1y) ** 2));
-	var meters = meters_to_px_ratio * dist;
-	var alt_delta = calc_alt_delta([marker.p0x, marker.p0y], [marker.p1x, marker.p1y]);
+	var heightmap_data = calc_alt_delta([marker.p0x, marker.p0y], [marker.p1x, marker.p1y]);
+	var alt_delta = null;
+	var meters;
+
+	if (heightmap_data) {
+		alt_delta = heightmap_data[0];
+		meters = heightmap_data[1];
+	} else {
+		var dist = Math.sqrt(((marker.p0x - marker.p1x) ** 2) + ((marker.p0y - marker.p1y) ** 2));
+		meters = meters_to_px_ratio * dist;
+	}
+
 	var milliradians = milliradians_from_meters(meters, alt_delta);
 
 	var angle = Math.atan2(marker.p0y - marker.p1y, marker.p0x - marker.p1x);
