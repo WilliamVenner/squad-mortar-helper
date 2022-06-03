@@ -76,6 +76,9 @@ jobs:
   build_windows:
     runs-on: windows-latest
     steps:
+    - name: Enable git long paths
+      run: git config --system core.longpaths true
+
     - uses: actions/checkout@v2
       with:
         submodules: recursive
