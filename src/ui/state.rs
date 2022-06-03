@@ -61,6 +61,8 @@ impl UIState {
 			.draw_background(false)
 			.menu_bar(true)
 			.bring_to_front_on_focus(false)
+			.scroll_bar(false)
+			.scrollable(false)
 			.begin(ui)
 			.unwrap();
 
