@@ -9,12 +9,10 @@ thread_local! {
 	};
 }
 
-pub fn frame(buffer: &mut Vec<u8>) -> Result<image::ImageBuffer<image::Bgra<u8>, &[u8]>, anyhow::Error> {
+pub fn frame() -> Result<image::ImageBuffer<image::Bgra<u8>, Box<[u8]>>, anyhow::Error> {
 	CAPTURER.with(|(w, h, capturer)| {
 		let mut capturer = capturer.borrow_mut();
 		let frame = capturer.frame()?;
-		buffer.clear();
-		buffer.extend_from_slice(&*frame);
-		Ok::<_, anyhow::Error>(image::ImageBuffer::from_raw(*w, *h, &**buffer).sus_unwrap())
+		Ok::<_, anyhow::Error>(image::ImageBuffer::from_raw(*w, *h, Box::from(&*frame)).sus_unwrap())
 	})
 }
