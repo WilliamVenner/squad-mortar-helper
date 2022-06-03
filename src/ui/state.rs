@@ -50,6 +50,8 @@ impl UIState {
 	}
 
 	pub(super) fn render(&mut self, ui: &Ui) {
+		let padding = ui.push_style_var(imgui::StyleVar::WindowPadding([0.0, 0.0]));
+
 		let window = imgui::Window::new("Main")
 			.no_decoration()
 			.bg_alpha(0.)
@@ -65,6 +67,8 @@ impl UIState {
 			.scrollable(false)
 			.begin(ui)
 			.unwrap();
+
+		padding.end();
 
 		if self.new_data {
 			if let Some(ref server) = self.web.server {

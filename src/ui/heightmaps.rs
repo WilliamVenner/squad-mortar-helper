@@ -718,7 +718,7 @@ pub(super) fn render_overlay(state: &mut UIState, ui: &Ui) {
 				// cheating really
 				ui.set_cursor_pos(minimap_viewport.top_left());
 
-				imgui::Image::new(texture_id, [minimap_viewport.right - minimap_viewport.left, minimap_viewport.bottom - minimap_viewport.top])
+				imgui::Image::new(texture_id, [minimap_viewport.width(), minimap_viewport.height()])
 					.tint_col([1.0, 1.0, 1.0, 0.25])
 					.build(ui);
 			}
