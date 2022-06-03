@@ -50,7 +50,7 @@ pub trait Vision: Sized + Send + Sync {
 	fn get_cpu_frame(&self) -> Arc<VisionFrame>;
 
 	fn load_frame(&mut self, image: VisionFrame) -> Result<(), Self::Error>;
-	fn load_map_markers(&mut self, map_marker_size: u32) -> Result<(), Self::Error>;
+	// fn load_map_markers(&mut self, map_marker_size: u32) -> Result<(), Self::Error>;
 
 	fn crop_to_map(&self, grayscale: bool) -> Result<Option<(image::RgbaImage, [u32; 4])>, Self::Error>;
 
@@ -59,7 +59,7 @@ pub trait Vision: Sized + Send + Sync {
 	fn find_scales_preprocess(&self, scales_start_y: u32) -> Result<*const SusRefCell<image::GrayImage>, Self::Error>;
 
 	fn isolate_map_markers(&self) -> Result<(), Self::Error>;
-	fn filter_map_marker_icons(&self) -> Result<(), Self::Error>;
+	// fn filter_map_marker_icons(&self) -> Result<(), Self::Error>;
 	fn mask_marker_lines(&self) -> Result<(), Self::Error>;
 	fn find_longest_line(&self, image: &Self::LSDImage, pt: Point<f32>, max_gap: f32) -> Result<(Line<f32>, f32), Self::Error>;
 	fn find_marker_lines(&self, max_gap: u32) -> Result<SmallVec<Line<f32>, 32>, Self::Error>;

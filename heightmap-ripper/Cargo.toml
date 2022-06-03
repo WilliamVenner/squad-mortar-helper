@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 thiserror = "1"
-image = "0.23"
+image = { version = "0.23", default-features = false, features = ["png", "jpeg", "ico"] }
 log = "0"
 steamlocate = "1"
 byteorder = "1"

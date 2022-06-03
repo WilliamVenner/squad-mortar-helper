@@ -8,33 +8,6 @@ const CHARLIE_MARKER_COLOR_HSV_TUP: (u16, u8, u8) = (
 	CHARLIE_MARKER_COLOR_HSV[2] as _,
 );
 
-macro_rules! markers {
-	($($path:literal),*) => {
-		const RAW_MARKERS: &[&[u8]] = &[$(include_bytes!($path)),*];
-		pub const AMOUNT: usize = RAW_MARKERS.len();
-	};
-}
-markers! {
-	"resources/map_commandmarker_squad_attack.TGA",
-	"resources/map_commandmarker_squad_build.TGA",
-	"resources/map_commandmarker_squad_defend.TGA",
-	"resources/map_commandmarker_squad_move.TGA",
-	"resources/map_commandmarker_squad_observe.TGA"
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct MapMarkerPixel {
-	pub x: u32,
-	pub y: u32,
-	pub pixel: image::Rgba<u8>,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct MarkedMapMarkerPixel {
-	pub visible: bool,
-	pub pixel: image::Rgba<u8>,
-}
-
 /// Saturation is a special case.
 ///
 /// The markers can be brightened by the lightness arc that the player icon emits on the map.
@@ -80,11 +53,42 @@ pub fn is_any_map_marker_color<P: HSV>(pixel: P) -> bool {
 		})
 }
 
+/*
+DISABLED
+Not needed for now.
+
 fn isolate_map_markers(image: &mut image::RgbaImage) {
 	image
 		.pixels_mut()
 		.filter(|pixel| !is_any_map_marker_color(**pixel))
 		.for_each(|pixel| *pixel = image::Rgba([0, 0, 0, 0]))
+}
+
+macro_rules! markers {
+	($($path:literal),*) => {
+		const RAW_MARKERS: &[&[u8]] = &[$(include_bytes!($path)),*];
+		pub const AMOUNT: usize = RAW_MARKERS.len();
+	};
+}
+markers! {
+	"resources/map_commandmarker_squad_attack.TGA",
+	"resources/map_commandmarker_squad_build.TGA",
+	"resources/map_commandmarker_squad_defend.TGA",
+	"resources/map_commandmarker_squad_move.TGA",
+	"resources/map_commandmarker_squad_observe.TGA"
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct MapMarkerPixel {
+	pub x: u32,
+	pub y: u32,
+	pub pixel: image::Rgba<u8>,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct MarkedMapMarkerPixel {
+	pub visible: bool,
+	pub pixel: image::Rgba<u8>,
 }
 
 fn process_marker<P: MapMarkerFilter>(marker: &'static [u8], size: u32, corners: Option<&[MapMarkerPixel]>) -> Box<[P::Pixel]> {
@@ -145,3 +149,4 @@ impl MapMarkerFilter for UnfilteredMarkers {
 		marker.pixels().copied().collect()
 	}
 }
+*/

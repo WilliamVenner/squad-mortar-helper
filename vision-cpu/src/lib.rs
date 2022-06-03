@@ -21,9 +21,9 @@ pub struct CPUFallback {
 
 	lsd_image: SusRefCell<image::GrayImage>,
 
-	marked_marker_pixels: (SusRefCell<Vec<(u32, u32)>>, AtomicUsize),
-	markers: [Box<[markers::MapMarkerPixel]>; markers::AMOUNT],
-	map_marker_size: u32,
+	// marked_marker_pixels: (SusRefCell<Vec<(u32, u32)>>, AtomicUsize),
+	// markers: [Box<[markers::MapMarkerPixel]>; markers::AMOUNT],
+	// map_marker_size: u32,
 }
 
 macro_rules! memory {
@@ -82,7 +82,7 @@ impl Vision for CPUFallback {
 			self.cropped_map = image::RgbImage::new(w, h).into();
 			self.cropped_brq = image::RgbImage::new(brq_w, brq_h).into();
 			self.ocr_out = image::GrayImage::new(brq_w, brq_h).into();
-			self.marked_marker_pixels = (SusRefCell::new(vec![Default::default(); w as usize * h as usize]), AtomicUsize::new(0));
+			// self.marked_marker_pixels = (SusRefCell::new(vec![Default::default(); w as usize * h as usize]), AtomicUsize::new(0));
 			self.scales_preprocessed = image::GrayImage::new(brq_w, brq_h).into();
 			self.lsd_image = image::GrayImage::new(w, h).into();
 		}
@@ -97,13 +97,15 @@ impl Vision for CPUFallback {
 		self.frame.clone()
 	}
 
+	/*
 	fn load_map_markers(&mut self, map_marker_size: u32) -> Result<(), Self::Error> {
 		if self.map_marker_size != map_marker_size {
-			self.markers = markers::load_markers::<markers::FilteredMarkers>(map_marker_size);
+			// self.markers = markers::load_markers::<markers::FilteredMarkers>(map_marker_size);
 			self.map_marker_size = map_marker_size;
 		}
 		Ok(())
 	}
+	*/
 
 	fn crop_to_map(&self, grayscale: bool) -> Result<Option<(image::RgbaImage, [u32; 4])>, Self::Error> {
 		let frame = &self.frame;
@@ -251,32 +253,33 @@ impl Vision for CPUFallback {
 	fn isolate_map_markers(&self) -> Result<(), Self::Error> {
 		let mut cropped_map = memory!(&mut self.cropped_map);
 
-		let marked_marker_pixels = memory!(&self.marked_marker_pixels);
-		let (mut marked_marker_pixels, len) = (marked_marker_pixels.0.borrow_mut(), &marked_marker_pixels.1);
+		// let marked_marker_pixels = memory!(&self.marked_marker_pixels);
+		// let (mut marked_marker_pixels, len) = (marked_marker_pixels.0.borrow_mut(), &marked_marker_pixels.1);
 
-		len.store(0, std::sync::atomic::Ordering::Release);
+		// len.store(0, std::sync::atomic::Ordering::Release);
 
 		// Isolate green pixels
 		let par_cropped_map = UnsafeSendPtr::new_mut(&mut *cropped_map);
-		let par_marked_marker_pixels = UnsafeSendPtr::new_mut(&mut *marked_marker_pixels);
+		// let par_marked_marker_pixels = UnsafeSendPtr::new_mut(&mut *marked_marker_pixels);
 		par_iter_pixels!(cropped_map).for_each(move |(x, y, pixel)| {
 			let cropped_map = unsafe { par_cropped_map.clone().as_mut() };
-			let marked_marker_pixels = unsafe { par_marked_marker_pixels.clone().as_mut() };
+			// let marked_marker_pixels = unsafe { par_marked_marker_pixels.clone().as_mut() };
 
 			if !markers::is_any_map_marker_color(pixel) {
 				cropped_map.put_pixel_fast(x, y, image::Rgb([0, 0, 0]));
-			} else if x >= self.map_marker_size
+			}/* else if x >= self.map_marker_size
 				&& y >= self.map_marker_size
 				&& x < cropped_map.width() - self.map_marker_size - 1
 				&& y < cropped_map.height() - self.map_marker_size - 1
 			{
 				marked_marker_pixels[len.fetch_add(1, std::sync::atomic::Ordering::SeqCst)] = (x, y);
-			}
+			}*/
 		});
 
 		Ok(())
 	}
 
+	/*
 	fn filter_map_marker_icons(&self) -> Result<(), Self::Error> {
 		let map_marker_size = self.map_marker_size;
 		let markers = &self.markers;
@@ -349,6 +352,7 @@ impl Vision for CPUFallback {
 
 		Ok(())
 	}
+	*/
 
 	fn mask_marker_lines(&self) -> Result<(), Self::Error> {
 		let cropped_map = memory!(&self.cropped_map);

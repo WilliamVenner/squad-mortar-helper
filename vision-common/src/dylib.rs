@@ -123,7 +123,7 @@ vision_dylib_wrapper! {
 
 	&mut self => {
 		fn load_frame(&mut self, image: VisionFrame) -> Result<(), E>;
-		fn load_map_markers(&mut self, map_marker_size: u32) -> Result<(), E>;
+		// fn load_map_markers(&mut self, map_marker_size: u32) -> Result<(), E>;
 	};
 
 	&self => {
@@ -136,7 +136,7 @@ vision_dylib_wrapper! {
 		fn find_scales_preprocess(&self, scales_start_y: u32) -> Result<*const SusRefCell<image::GrayImage>, E>;
 
 		fn isolate_map_markers(&self) -> Result<(), E>;
-		fn filter_map_marker_icons(&self) -> Result<(), E>;
+		// fn filter_map_marker_icons(&self) -> Result<(), E>;
 		fn mask_marker_lines(&self) -> Result<(), E>;
 		fn find_marker_lines(&self, max_gap: u32) -> Result<SmallVec<Line<f32>, 32>, E>;
 		fn find_longest_line(&self, image: &LSDImage, pt: Point<f32>, max_gap: f32) -> Result<(Line<f32>, f32), E>;

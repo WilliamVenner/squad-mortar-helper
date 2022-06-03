@@ -6,7 +6,7 @@ extern crate bytemuck;
 
 mod cuda;
 mod gpuimage;
-mod gpumarkers;
+// mod gpumarkers;
 
 smh_vision_common::export_dylib_wrapper!(smh_vision_gpu => cuda::CUDAInstance);
 
@@ -21,14 +21,14 @@ use cust::{
 	launch,
 	memory::{
 		AsyncCopyDestination, CopyDestination, DeviceBox, DeviceBuffer, DeviceCopy, DevicePointer, DeviceSlice, LockedBuffer, UnifiedBuffer,
-		UnifiedPointer, DeviceSliceIndex,
+		UnifiedPointer
 	},
 	prelude::*,
 };
 
 use cuda::*;
 use gpuimage::*;
-use gpumarkers::*;
+// use gpumarkers::*;
 
 struct GPUMemory {
 	frame: GPUImage<u8, DeviceBuffer<u8>, image::Bgra<u8>>,
@@ -43,9 +43,9 @@ struct GPUMemory {
 	scales_preprocessed: GPUImage<u8, DeviceBuffer<u8>, image::Luma<u8>>,
 	scales_preprocessed_host: SusRefCell<image::GrayImage>,
 
-	map_marker_template_matches_sad: SusRefCell<Vec<GPUTemplateMatch>>,
-	marked_map_marker_pixels: DeviceBuffer<GPUTemplateMatch>,
-	marked_map_marker_pixels_count: DeviceBox<u32>,
+	// map_marker_template_matches_sad: SusRefCell<Vec<GPUTemplateMatch>>,
+	// marked_map_marker_pixels: DeviceBuffer<GPUTemplateMatch>,
+	// marked_map_marker_pixels_count: DeviceBox<u32>,
 
 	lsd_image: SusRefCell<PinnedGPUImage<u8, DeviceBuffer<u8>, image::Luma<u8>>>,
 	lsd_image_dilate: DeviceBuffer<u8>,
@@ -59,7 +59,7 @@ struct GPUMemory {
 impl GPUMemory {
 	fn new(dimensions: (u32, u32)) -> Result<Self, AnyError> {
 		unsafe {
-			let map_icon_size: u32 = 22; // TODO scale to monitor
+			// let map_icon_size: u32 = 22;
 
 			let [_, _, w, h] = MAP_BOUNDS.into_absolute([dimensions.0, dimensions.1]);
 
@@ -90,9 +90,9 @@ impl GPUMemory {
 				scales_preprocessed: GPUImage::uninitialized(brq_w, brq_h, 1)?,
 				scales_preprocessed_host: SusRefCell::new(image::GrayImage::new(brq_w, brq_h)),
 
-				map_marker_template_matches_sad: SusRefCell::new(vec![GPUTemplateMatch::zeroed(); (w - map_icon_size) as usize * (h - map_icon_size) as usize]),
-				marked_map_marker_pixels: DeviceBuffer::uninitialized(w as usize * h as usize)?,
-				marked_map_marker_pixels_count: DeviceBox::uninitialized()?,
+				// map_marker_template_matches_sad: SusRefCell::new(vec![GPUTemplateMatch::zeroed(); (w - map_icon_size) as usize * (h - map_icon_size) as usize]),
+				// marked_map_marker_pixels: DeviceBuffer::uninitialized(w as usize * h as usize)?,
+				// marked_map_marker_pixels_count: DeviceBox::uninitialized()?,
 
 				lsd_image: PinnedGPUImage::uninitialized(w, h, 1)?.into(),
 				lsd_image_dilate: DeviceBuffer::uninitialized(w as usize * h as usize)?,
@@ -110,8 +110,8 @@ struct GPUVisionState {
 	dimensions: (u32, u32),
 	memory: Option<GPUMemory>,
 
-	map_marker_size: u32,
-	map_markers: Option<GPUMapMarkers>
+	// map_marker_size: u32,
+	// map_markers: Option<GPUMapMarkers>
 }
 impl GPUVisionState {
 	#[inline]
@@ -124,6 +124,7 @@ impl GPUVisionState {
 		Ok(unsafe { self.memory.as_mut().unwrap_unchecked() })
 	}
 
+	/*
 	#[inline]
 	fn update_map_markers(&mut self, map_marker_size: u32) -> Result<(), AnyError> {
 		if self.map_markers.is_none() || self.map_marker_size != map_marker_size {
@@ -133,6 +134,7 @@ impl GPUVisionState {
 		}
 		Ok(())
 	}
+	*/
 }
 
 macro_rules! memory {
@@ -179,9 +181,8 @@ impl Vision for CUDAInstance {
 			// reset state
 			memory.red_pixels.async_copy_from(&0, stream)?;
 
-			memory.marked_map_marker_pixels_count.async_copy_from(&0, stream)?;
-
-			memory.map_marker_template_matches_sad.borrow_mut().fill(GPUTemplateMatch::zeroed());
+			// memory.marked_map_marker_pixels_count.async_copy_from(&0, stream)?;
+			// memory.map_marker_template_matches_sad.borrow_mut().fill(GPUTemplateMatch::zeroed());
 
 			stream.synchronize()?;
 		}
@@ -196,10 +197,12 @@ impl Vision for CUDAInstance {
 		self.state.cpu_frame.clone()
 	}
 
+	/*
 	#[inline]
 	fn load_map_markers(&mut self, map_marker_size: u32) -> Result<(), Self::Error> {
 		self.state.update_map_markers(map_marker_size)
 	}
+	*/
 
 	fn crop_to_map(&self, grayscale: bool) -> Result<Option<(image::RgbaImage, [u32; 4])>, Self::Error> {
 		// TODO whats the point of cropping on GPU? shouldn't we just use the CPU?
@@ -345,19 +348,19 @@ impl Vision for CUDAInstance {
 	fn isolate_map_markers(&self) -> Result<(), Self::Error> {
 		let stream = memory!(&self.markers_stream);
 		let cropped_map = memory!(&self.cropped_map);
-		let marked_map_marker_pixels = memory!(&self.marked_map_marker_pixels);
-		let marked_map_marker_pixels_count = memory!(&self.marked_map_marker_pixels_count);
-		let map_marker_size = self.state.map_marker_size;
+		// let marked_map_marker_pixels = memory!(&self.marked_map_marker_pixels);
+		// let marked_map_marker_pixels_count = memory!(&self.marked_map_marker_pixels_count);
+		// let map_marker_size = self.state.map_marker_size;
 
 		unsafe {
 			let (grid, block) = gpu_2d_kernel![<<<[cropped_map.width, cropped_map.height], (8, 8)>>>];
 			launch!(
 				self.isolate_map_markers<<<grid, block, 0, stream>>>(
 					cropped_map.as_device_ptr(),
-					cropped_map.width, cropped_map.height,
-					marked_map_marker_pixels.as_device_ptr(),
-					marked_map_marker_pixels_count.as_device_ptr(),
-					map_marker_size
+					cropped_map.width, cropped_map.height
+					// marked_map_marker_pixels.as_device_ptr(),
+					// marked_map_marker_pixels_count.as_device_ptr(),
+					// map_marker_size
 				)
 			)?;
 		}
@@ -367,6 +370,7 @@ impl Vision for CUDAInstance {
 		Ok(())
 	}
 
+	/*
 	fn filter_map_marker_icons(&self) -> Result<(), Self::Error> {
 		let marked_map_marker_pixels_count = memory!(&self.marked_map_marker_pixels_count).as_host_value()?;
 		if marked_map_marker_pixels_count == 0 {
@@ -423,6 +427,7 @@ impl Vision for CUDAInstance {
 
 		Ok(())
 	}
+	*/
 
 	fn mask_marker_lines(&self) -> Result<(), Self::Error> {
 		#[link(name = "gpu_dilate", kind = "static")]
@@ -570,7 +575,7 @@ fn test_gpu_computer_vision() {
 			let image = image::ImageBuffer::from_raw(image.width(), image.height(), image.into_raw().into_boxed_slice()).unwrap();
 
 			cuda.load_frame(image).unwrap();
-			cuda.load_map_markers(22).unwrap();
+			// cuda.load_map_markers(22).unwrap();
 
 			let ui_map = cuda.crop_to_map(true).unwrap().expect("crop_to_map failed");
 
@@ -585,7 +590,7 @@ fn test_gpu_computer_vision() {
 					cuda.thread_ctx().unwrap();
 
 					cuda.isolate_map_markers().expect("isolate_map_markers failed");
-					cuda.filter_map_marker_icons().expect("filter_map_marker_icons failed");
+					// cuda.filter_map_marker_icons().expect("filter_map_marker_icons failed");
 					cuda.mask_marker_lines().expect("mask_marker_lines failed");
 					cuda.find_marker_lines(22).expect("find_marker_lines failed")
 				},
