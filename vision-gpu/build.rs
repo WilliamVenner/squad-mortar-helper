@@ -18,7 +18,6 @@ fn cuda() {
 		.compile("gpu_dilate");
 
 	println!("cargo:rustc-link-lib=static=nppim");
-	println!("cargo:rustc-link-search=native={}", std::env::var("CUDA_LIBRARY_PATH").expect("Expected CUDA_LIBRARY_PATH to be set"));
 
 	if cfg!(feature = "gpu-ptx-vendored") {
 		return;
