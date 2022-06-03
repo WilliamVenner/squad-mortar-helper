@@ -194,6 +194,12 @@ impl<I: image::GenericImageView + image::GenericImage> FastPixelSet for I {
 }
 
 fn hsv(r: u8, g: u8, b: u8) -> (u16, u8, u8) {
+	#[inline]
+	fn modulo(a: f32, b: f32) -> f32 {
+		let r = a % b;
+		if r < 0.0 { r + b } else { r }
+	}
+
 	let r = r as f32 / 255.0;
 	let g = g as f32 / 255.0;
 	let b = b as f32 / 255.0;
@@ -214,7 +220,7 @@ fn hsv(r: u8, g: u8, b: u8) -> (u16, u8, u8) {
 	let s = 100.0 * delta / max;
 	let v = 100.0 * max;
 
-	(h as u16, s as u8, v as u8)
+	(modulo(h, 360.0) as u16, s as u8, v as u8)
 }
 pub trait HSV: image::Pixel {
 	fn to_hsv(self) -> (u16, u8, u8);
