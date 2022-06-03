@@ -365,7 +365,6 @@ impl Vision for CPUFallback {
 			}
 		});
 
-		// TODO we need to add this to the GPU as well
 		imageproc::morphology::dilate_mut(&mut *lsd_image, imageproc::distance_transform::Norm::L1, 1);
 
 		Ok(())

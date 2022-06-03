@@ -294,7 +294,6 @@ impl Vision for CUDAInstance {
 		Ok(Some((image::RgbaImage::from_vec(w, h, ui_map_host).sus_unwrap(), [x, y, w, h])))
 	}
 
-	// TODO same algorithm as cpu
 	fn ocr_preprocess(&self) -> Result<(*const u8, usize), Self::Error> {
 		let stream = memory!(&self.scales_stream);
 		let cropped_brq = memory!(&self.cropped_brq);
@@ -369,8 +368,6 @@ impl Vision for CUDAInstance {
 	}
 
 	fn filter_map_marker_icons(&self) -> Result<(), Self::Error> {
-		// TODO verify and clean up this code i wrote when very tired
-
 		let marked_map_marker_pixels_count = memory!(&self.marked_map_marker_pixels_count).as_host_value()?;
 		if marked_map_marker_pixels_count == 0 {
 			return Ok(());
