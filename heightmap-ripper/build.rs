@@ -18,8 +18,6 @@ fn main() {
 		"Release"
 	};
 
-	Command::new("git").args(&["submodule", "update", "--recursive", "--remote", "--init"]).spawn().unwrap().wait().unwrap();
-
 	let output = Command::new("dotnet").current_dir("SquadHeightmapRipper").args(&["publish", "-c", configuration, "-r", platform, "-p:PublishSingleFile=true", "-p:PublishTrimmed=true", "--self-contained", "true"]).output().unwrap();
 	if !output.status.success() {
 		panic!("Status: {:?}\n\n============ STDOUT ============\n{}\n\n============ STDERR ============\n{}", output.status, String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
