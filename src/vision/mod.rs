@@ -1,4 +1,4 @@
-use smh_vision_common::{Vision, consts::*};
+use smh_vision_common::Vision;
 use crate::{prelude::*, capture::Frame};
 
 pub const FPS: u32 = 15;
@@ -42,8 +42,12 @@ impl VisionState {
 
 		let (ocr_overlay, scales_overlay) = (SYNCED_DEBUG_STATE.ocr_overlay(), SYNCED_DEBUG_STATE.scales_overlay());
 
-		let map_marker_size = 22; // NOTE: this ISN'T scaled to monitor size, but I have suspicion that it might be one day. So I'm leaving this here
+		/*
+		DISABLED: see filter_map_marker_icons in this file
+
+		let map_marker_size = 22; // NOTE: this ISN'T scaled to monitor size, the user configures it in their map's sidebar. We assume it's 0.7 (the default) which equals 22px
 		vision.load_map_markers(map_marker_size)?;
+		*/
 
 		let start = Instant::now();
 		let mut result: Result<Option<VisionResults>, AnyError> = (|| {
@@ -105,7 +109,10 @@ impl VisionState {
 					// Perform line segment detection on the map to find the map marker lines (i.e. what the player/squad leader is ordering mortar fire on)
 					debug_waterfall!(mask_marker_lines => vision.mask_marker_lines())?;
 
-					debug_waterfall!(find_marker_lines => vision.find_marker_lines(((map_marker_size as f32) * MAP_MARKER_POI_LOCATION) as u32))?
+					debug_waterfall!(find_marker_lines => vision.find_marker_lines(
+						/* DISABLED ((map_marker_size as f32) * MAP_MARKER_POI_LOCATION) as u32 */
+						15
+					))?
 				} else {
 					Default::default()
 				})
