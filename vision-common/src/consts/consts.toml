@@ -48,11 +48,19 @@ value = 15
 
 [FIND_MARKER_HSV_SAT_TOLERANCE]
 type = "u8"
-value = 25
+value = 15
 
 [FIND_MARKER_HSV_VIB_TOLERANCE]
 type = "u8"
-value = 25
+value = 15
+
+[FIND_MARKER_HSV_MIN_SAT]
+type = "u8"
+value = 35
+
+[FIND_MARKER_PLAYER_DIR_ARC_SAT]
+type = "i16"
+value = 50
 
 [MAP_MARKER_POI_LOCATION]
 type = "f32"

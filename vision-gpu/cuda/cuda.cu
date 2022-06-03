@@ -274,36 +274,38 @@ namespace markers
 	};
 };
 
-__device__ __forceinline__ bool is_map_marker_color(RGB rgb)
+__device__ __forceinline__ bool is_any_map_marker_color(RGB rgb)
 {
-	constexpr uint16_t MAP_MARKER_COLORS[3][3] = {
-		*ALPHA_MARKER_COLOR_HSV,
-		*BRAVO_MARKER_COLOR_HSV,
-		*CHARLIE_MARKER_COLOR_HSV};
-
 	HSV hsv = rgb.to_hsv();
 
-	bool alpha_hue_ok = abs((int16_t)hsv.h - (int16_t)ALPHA_MARKER_COLOR_HSV[0]) <= FIND_MARKER_HSV_HUE_TOLERANCE;
-	bool alpha_sat_ok = abs((int16_t)hsv.s - (int16_t)ALPHA_MARKER_COLOR_HSV[1]) <= FIND_MARKER_HSV_SAT_TOLERANCE;
-	bool alpha_vib_ok = abs((int16_t)hsv.v - (int16_t)ALPHA_MARKER_COLOR_HSV[2]) <= FIND_MARKER_HSV_VIB_TOLERANCE;
+	const bool min_sat_ok = hsv.s >= FIND_MARKER_HSV_MIN_SAT;
 
-	bool bravo_hue_ok = abs((int16_t)hsv.h - (int16_t)BRAVO_MARKER_COLOR_HSV[0]) <= FIND_MARKER_HSV_HUE_TOLERANCE;
-	bool bravo_sat_ok = abs((int16_t)hsv.s - (int16_t)BRAVO_MARKER_COLOR_HSV[1]) <= FIND_MARKER_HSV_SAT_TOLERANCE;
-	bool bravo_vib_ok = abs((int16_t)hsv.v - (int16_t)BRAVO_MARKER_COLOR_HSV[2]) <= FIND_MARKER_HSV_VIB_TOLERANCE;
+	const bool alpha_hue_ok = abs((int16_t)hsv.h - (int16_t)ALPHA_MARKER_COLOR_HSV[0]) <= FIND_MARKER_HSV_HUE_TOLERANCE;
+	const bool alpha_sat_ok = abs((int16_t)hsv.s - (int16_t)ALPHA_MARKER_COLOR_HSV[1]) <= FIND_MARKER_HSV_SAT_TOLERANCE;
+	const bool alpha_light_sat_ok = abs((int16_t)hsv.s - ((int16_t)ALPHA_MARKER_COLOR_HSV[1] - FIND_MARKER_PLAYER_DIR_ARC_SAT)) <= FIND_MARKER_HSV_SAT_TOLERANCE;
+	const bool alpha_vib_ok = abs((int16_t)hsv.v - (int16_t)ALPHA_MARKER_COLOR_HSV[2]) <= FIND_MARKER_HSV_VIB_TOLERANCE;
 
-	bool charlie_hue_ok = abs((int16_t)hsv.h - (int16_t)CHARLIE_MARKER_COLOR_HSV[0]) <= FIND_MARKER_HSV_HUE_TOLERANCE;
-	bool charlie_sat_ok = abs((int16_t)hsv.s - (int16_t)CHARLIE_MARKER_COLOR_HSV[1]) <= FIND_MARKER_HSV_SAT_TOLERANCE;
-	bool charlie_vib_ok = abs((int16_t)hsv.v - (int16_t)CHARLIE_MARKER_COLOR_HSV[2]) <= FIND_MARKER_HSV_VIB_TOLERANCE;
+	const bool bravo_hue_ok = abs((int16_t)hsv.h - (int16_t)BRAVO_MARKER_COLOR_HSV[0]) <= FIND_MARKER_HSV_HUE_TOLERANCE;
+	const bool bravo_sat_ok = abs((int16_t)hsv.s - (int16_t)BRAVO_MARKER_COLOR_HSV[1]) <= FIND_MARKER_HSV_SAT_TOLERANCE;
+	const bool bravo_light_sat_ok = abs((int16_t)hsv.s - ((int16_t)BRAVO_MARKER_COLOR_HSV[1] - FIND_MARKER_PLAYER_DIR_ARC_SAT)) <= FIND_MARKER_HSV_SAT_TOLERANCE;
+	const bool bravo_vib_ok = abs((int16_t)hsv.v - (int16_t)BRAVO_MARKER_COLOR_HSV[2]) <= FIND_MARKER_HSV_VIB_TOLERANCE;
 
-	return (alpha_hue_ok &&
-			alpha_sat_ok &&
-			alpha_vib_ok) ||
-		   (bravo_hue_ok &&
-			bravo_sat_ok &&
-			bravo_vib_ok) ||
-		   (charlie_hue_ok &&
-			charlie_sat_ok &&
-			charlie_vib_ok);
+	const bool charlie_hue_ok = abs((int16_t)hsv.h - (int16_t)CHARLIE_MARKER_COLOR_HSV[0]) <= FIND_MARKER_HSV_HUE_TOLERANCE;
+	const bool charlie_sat_ok = abs((int16_t)hsv.s - (int16_t)CHARLIE_MARKER_COLOR_HSV[1]) <= FIND_MARKER_HSV_SAT_TOLERANCE;
+	const bool charlie_light_sat_ok = abs((int16_t)hsv.s - ((int16_t)CHARLIE_MARKER_COLOR_HSV[1] - FIND_MARKER_PLAYER_DIR_ARC_SAT)) <= FIND_MARKER_HSV_SAT_TOLERANCE;
+	const bool charlie_vib_ok = abs((int16_t)hsv.v - (int16_t)CHARLIE_MARKER_COLOR_HSV[2]) <= FIND_MARKER_HSV_VIB_TOLERANCE;
+
+	const bool ok = min_sat_ok && ((alpha_hue_ok &&
+									(alpha_sat_ok || alpha_light_sat_ok) &&
+									alpha_vib_ok) ||
+								   (bravo_hue_ok &&
+									(bravo_sat_ok || bravo_light_sat_ok) &&
+									bravo_vib_ok) ||
+								   (charlie_hue_ok &&
+									(charlie_sat_ok || charlie_light_sat_ok) &&
+									charlie_vib_ok));
+
+	return ok;
 }
 
 // Counts the number of red pixels where the "CLOSE DEPLOYMENT BUTTON" is on the screen
@@ -528,7 +530,7 @@ extern "C" __global__ void isolate_map_markers(
 	if (x >= w || y >= h) [[unlikely]]
 		return;
 
-	if (!is_map_marker_color(input[y * w + x]))
+	if (!is_any_map_marker_color(input[y * w + x]))
 	{
 		input[y * w + x] = RGB(0, 0, 0);
 	}
@@ -619,7 +621,7 @@ extern "C" __global__ void mask_marker_lines(
 	if (x >= w || y >= h) [[unlikely]]
 		return;
 
-	if (is_map_marker_color(input[y * w + x]))
+	if (is_any_map_marker_color(input[y * w + x]))
 	{
 		output[y * w + x] = 255;
 	}
@@ -669,7 +671,8 @@ extern "C" __global__ void find_longest_line(
 	while (x >= 0.0 && y >= 0.0 && x < w && y < h)
 		[[likely]]
 		{
-			if (gap == 0) {
+			if (gap == 0)
+			{
 				if (input[(uint32_t)y * w + (uint32_t)x] != 255)
 				{
 					// save the state of (x, y) so we can restore it later if the gap isn't closed
@@ -678,7 +681,9 @@ extern "C" __global__ void find_longest_line(
 					gap_y = y;
 					gap_count++;
 				}
-			} else {
+			}
+			else
+			{
 				if (input[(uint32_t)y * w + (uint32_t)x] == 255)
 				{
 					// there's no gap, reset state
@@ -715,8 +720,7 @@ extern "C" __global__ void find_longest_line(
 
 	const Line line = Line{
 		Point{x_start, y_start},
-		Point{x_end, y_end}
-	};
+		Point{x_end, y_end}};
 
 	const float length = ((line.p0.x - line.p1.x) * (line.p0.x - line.p1.x)) + ((line.p0.y - line.p1.y) * (line.p0.y - line.p1.y));
 

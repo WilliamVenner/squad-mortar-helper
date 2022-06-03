@@ -1,4 +1,12 @@
-use crate::*;
+use crate::{*, consts::*};
+
+const ALPHA_MARKER_COLOR_HSV_TUP: (u16, u8, u8) = (ALPHA_MARKER_COLOR_HSV[0], ALPHA_MARKER_COLOR_HSV[1] as _, ALPHA_MARKER_COLOR_HSV[2] as _);
+const BRAVO_MARKER_COLOR_HSV_TUP: (u16, u8, u8) = (BRAVO_MARKER_COLOR_HSV[0], BRAVO_MARKER_COLOR_HSV[1] as _, BRAVO_MARKER_COLOR_HSV[2] as _);
+const CHARLIE_MARKER_COLOR_HSV_TUP: (u16, u8, u8) = (
+	CHARLIE_MARKER_COLOR_HSV[0],
+	CHARLIE_MARKER_COLOR_HSV[1] as _,
+	CHARLIE_MARKER_COLOR_HSV[2] as _,
+);
 
 macro_rules! markers {
 	($($path:literal),*) => {
@@ -27,24 +35,47 @@ pub struct MarkedMapMarkerPixel {
 	pub pixel: image::Rgba<u8>,
 }
 
-pub fn is_map_marker_color<P: HSV>(pixel: P) -> bool {
-	use crate::consts::*;
+/// Saturation is a special case.
+///
+/// The markers can be brightened by the lightness arc that the player icon emits on the map.
+///
+/// Therefore, we need some special logic to detect this whilst filtering out noise.
+#[inline]
+fn saturation_ok(s: u8, ms: u8) -> bool {
+	ms.abs_diff(s) <= FIND_MARKER_HSV_SAT_TOLERANCE || (s as i16 - (ms as i16 - FIND_MARKER_PLAYER_DIR_ARC_SAT)).abs() as u8 <= FIND_MARKER_HSV_SAT_TOLERANCE
+}
 
-	const ALPHA_MARKER_COLOR_HSV_TUP: (u16, u8, u8) = (ALPHA_MARKER_COLOR_HSV[0], ALPHA_MARKER_COLOR_HSV[1] as _, ALPHA_MARKER_COLOR_HSV[2] as _);
-	const BRAVO_MARKER_COLOR_HSV_TUP: (u16, u8, u8) = (BRAVO_MARKER_COLOR_HSV[0], BRAVO_MARKER_COLOR_HSV[1] as _, BRAVO_MARKER_COLOR_HSV[2] as _);
-	const CHARLIE_MARKER_COLOR_HSV_TUP: (u16, u8, u8) = (
-		CHARLIE_MARKER_COLOR_HSV[0],
-		CHARLIE_MARKER_COLOR_HSV[1] as _,
-		CHARLIE_MARKER_COLOR_HSV[2] as _,
-	);
+pub enum Fireteam {
+	Alpha,
+	Bravo,
+	Charlie
+}
+pub fn debug_is_map_marker_color(h: u16, s: u8, v: u8, fireteam: Fireteam) -> [bool; 3] {
+	let (mh, ms, mv) = match fireteam {
+		Fireteam::Alpha => ALPHA_MARKER_COLOR_HSV_TUP,
+		Fireteam::Bravo => BRAVO_MARKER_COLOR_HSV_TUP,
+		Fireteam::Charlie => CHARLIE_MARKER_COLOR_HSV_TUP
+	};
 
+	[
+		mh.abs_diff(h) <= FIND_MARKER_HSV_HUE_TOLERANCE,
+		s >= FIND_MARKER_HSV_MIN_SAT && saturation_ok(s, ms),
+		mv.abs_diff(v) <= FIND_MARKER_HSV_VIB_TOLERANCE
+	]
+}
+
+pub fn is_any_map_marker_color<P: HSV>(pixel: P) -> bool {
 	let (h, s, v) = pixel.to_hsv();
+
+	if s < FIND_MARKER_HSV_MIN_SAT {
+		return false;
+	}
 
 	[ALPHA_MARKER_COLOR_HSV_TUP, BRAVO_MARKER_COLOR_HSV_TUP, CHARLIE_MARKER_COLOR_HSV_TUP]
 		.into_iter()
 		.any(|(mh, ms, mv)| {
 			mh.abs_diff(h) <= FIND_MARKER_HSV_HUE_TOLERANCE
-				&& ms.abs_diff(s) <= FIND_MARKER_HSV_SAT_TOLERANCE
+				&& saturation_ok(s, ms)
 				&& mv.abs_diff(v) <= FIND_MARKER_HSV_VIB_TOLERANCE
 		})
 }
@@ -52,7 +83,7 @@ pub fn is_map_marker_color<P: HSV>(pixel: P) -> bool {
 fn isolate_map_markers(image: &mut image::RgbaImage) {
 	image
 		.pixels_mut()
-		.filter(|pixel| !is_map_marker_color(**pixel))
+		.filter(|pixel| !is_any_map_marker_color(**pixel))
 		.for_each(|pixel| *pixel = image::Rgba([0, 0, 0, 0]))
 }
 

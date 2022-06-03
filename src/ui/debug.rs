@@ -1,7 +1,7 @@
 #![allow(clippy::type_complexity)]
 
 use super::*;
-use smh_vision_common::debug::*;
+use smh_vision_common::{debug::*, markers::{Fireteam, debug_is_map_marker_color}};
 
 pub static SYNCED_DEBUG_STATE: SyncedDebugState = SyncedDebugState {
 	debug_view: AtomicU8::new(DebugView::None as u8),
@@ -377,10 +377,16 @@ pub(super) fn render_vision_debugger(state: &mut UIState, ui: &Ui) {
 	let ocr_monochromaticy = smh_vision_cpu::ocr_monochromaticy(rgb);
 	let ocr_pixel_brightness = smh_vision_cpu::ocr_brightness(rgb);
 
+	let [alpha, bravo, charlie] = [
+		debug_is_map_marker_color(hsv.0, hsv.1, hsv.2, Fireteam::Alpha),
+		debug_is_map_marker_color(hsv.0, hsv.1, hsv.2, Fireteam::Bravo),
+		debug_is_map_marker_color(hsv.0, hsv.1, hsv.2, Fireteam::Charlie)
+	];
+
 	let font = ui.push_font(state.fonts.debug_small);
 	let text = ui_format!(
 		state,
-		"RGB [{}, {}, {}]\nHSV [{}, {}, {}]\nLuma8 {}\nOCRPixelSimilarity {}\nOCRBrightness {}",
+		"RGB [{}, {}, {}]\nHSV [{}, {}, {}]\nLuma8 {}\nOCRPixelSimilarity {}\nOCRBrightness {}\nAlphaMarker {:?}\nBravoMarker {:?}\nCharlieMarker {:?}",
 		rgb.0[0],
 		rgb.0[1],
 		rgb.0[2],
@@ -389,14 +395,18 @@ pub(super) fn render_vision_debugger(state: &mut UIState, ui: &Ui) {
 		hsv.2,
 		luma8,
 		ocr_monochromaticy,
-		ocr_pixel_brightness
+		ocr_pixel_brightness,
+		alpha,
+		bravo,
+		charlie
 	);
 
 	let window_padding = ui.window_padding();
 
+	let window_size = 200.0;
 	let window_size = [
-		150.0,
-		ui.calc_text_size_with_opts(&text, false, 150.0 - (window_padding[0] * 2.0))[1] + 10.0 + ui.text_line_height() + window_padding[1],
+		window_size,
+		ui.calc_text_size_with_opts(&text, false, window_size - (window_padding[0] * 2.0))[1] + 10.0 + ui.text_line_height() + window_padding[1],
 	];
 
 	font.end();
