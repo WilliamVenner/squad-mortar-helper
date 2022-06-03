@@ -1,6 +1,7 @@
-#[macro_use] extern crate build_cfg;
+#[macro_use]
+extern crate build_cfg;
 
-use std::{process::Command, path::Path, ffi::OsStr};
+use std::{ffi::OsStr, path::Path, process::Command};
 
 #[build_cfg_main]
 fn main() {
@@ -12,15 +13,31 @@ fn main() {
 		panic!("unsupported platform")
 	};
 
-	let configuration = if cfg!(debug_assertions) {
-		"Debug"
-	} else {
-		"Release"
-	};
+	let configuration = if cfg!(debug_assertions) { "Debug" } else { "Release" };
 
-	let output = Command::new("dotnet").current_dir("SquadHeightmapRipper").args(&["publish", "-c", configuration, "-r", platform, "-p:PublishSingleFile=true", "-p:PublishTrimmed=true", "--self-contained", "true"]).output().unwrap();
+	let output = Command::new("dotnet")
+		.current_dir("SquadHeightmapRipper")
+		.args(&[
+			"publish",
+			"-c",
+			configuration,
+			"-r",
+			platform,
+			"-p:PublishSingleFile=true",
+			"-p:PublishTrimmed=true",
+			"--self-contained",
+			"true",
+		])
+		.output()
+		.unwrap();
+
 	if !output.status.success() {
-		panic!("Status: {:?}\n\n============ STDOUT ============\n{}\n\n============ STDERR ============\n{}", output.status, String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
+		panic!(
+			"Status: {:?}\n\n============ STDOUT ============\n{}\n\n============ STDERR ============\n{}",
+			output.status,
+			String::from_utf8_lossy(&output.stdout),
+			String::from_utf8_lossy(&output.stderr)
+		);
 	}
 
 	let out_dir = std::env::var("OUT_DIR").expect("Expected OUT_DIR env var to bet set");
@@ -37,8 +54,14 @@ fn main() {
 	let copy_extensions = [OsStr::new("so"), OsStr::new("dll"), OsStr::new("exe")];
 	for entry in std::fs::read_dir(bin_dir).unwrap() {
 		let entry = entry.unwrap();
-		if entry.file_type().unwrap().is_file() && (entry.path().extension().is_none() || copy_extensions.contains(&entry.path().extension().unwrap())) {
-			std::fs::write(out_dir.join(entry.path().file_name().unwrap()), std::fs::read(bin_dir.join(entry.path().file_name().unwrap())).unwrap()).unwrap();
+		if entry.file_type().unwrap().is_file()
+			&& (entry.path().extension().is_none() || copy_extensions.contains(&entry.path().extension().unwrap()))
+		{
+			std::fs::write(
+				out_dir.join(entry.path().file_name().unwrap()),
+				std::fs::read(bin_dir.join(entry.path().file_name().unwrap())).unwrap(),
+			)
+			.unwrap();
 		}
 	}
 }
