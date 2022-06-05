@@ -1,4 +1,5 @@
-#[macro_use] extern crate build_cfg;
+#[macro_use]
+extern crate build_cfg;
 
 use std::{path::Path, process::Command};
 
@@ -10,17 +11,60 @@ fn cuda() {
 	println!("cargo:rerun-if-changed=../vision-common/src/consts/consts.cu");
 	println!("cargo:rerun-if-env-changed=CUDA_LIBRARY_PATH");
 
+	let nvcc_path = which::which("nvcc").ok();
+
 	if build_cfg!(target_os = "windows") {
-		cc::Build::new()
+		// nvidia why???
+
+		let mut build = cc::Build::new();
+		build
 			.cuda(true)
 			.cargo_metadata(true)
 			.flag("-lnppc")
 			.flag("-lnppim")
 			.include("cuda")
-			.file("cuda/dilate.cpp")
-			.compile("gpu_dilate");
+			.file("cuda/dilate.cpp");
 
-		println!("cargo:rustc-link-lib=static=nppim");
+		let nvcc_path = nvcc_path.clone().unwrap_or_else(|| build.get_compiler().path().to_path_buf());
+		if !nvcc_path.is_file() {
+			panic!("nvcc not found - needed to copy nppim dll");
+		}
+
+		build.compile("gpu_dilate");
+
+		println!("cargo:rustc-link-lib=nppim");
+
+		let dll = nvcc_path
+			.parent()
+			.unwrap()
+			.read_dir()
+			.ok()
+			.and_then(|dir| {
+				dir.filter_map(|entry| {
+					entry
+						.ok()
+						.and_then(|entry| if entry.file_type().ok()?.is_file() { Some(entry.path()) } else { None })
+				})
+				.find(|path| {
+					path.extension() == Some(std::ffi::OsStr::new("dll"))
+						&& path
+							.file_name()
+							.and_then(|name| name.to_str())
+							.map(|name| name.starts_with("nppim64"))
+							.unwrap_or(false)
+				})
+			})
+			.expect("Failed to find nppim dll");
+
+		let mut out = Path::new(&std::env::var("OUT_DIR").unwrap()).to_path_buf();
+		if !out.join("deps").is_dir() {
+			out.pop();
+			out.pop();
+			out.pop();
+		}
+		out.push(dll.file_name().unwrap());
+
+		std::fs::copy(dll, out).expect("Failed to copy nppim dll"); // ughhhh
 	} else {
 		cc::Build::new()
 			.cuda(true)
@@ -60,7 +104,7 @@ fn cuda() {
 			ptx_path.set_file_name("cuda_release.ptx");
 		}
 
-		if which::which("nvcc").is_err() {
+		if nvcc_path.is_none() {
 			if ptx_path.is_file() {
 				// We might be doing continuous development, so don't fail if the ptx file is missing
 				return;
