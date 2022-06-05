@@ -335,9 +335,10 @@ pub(super) fn render(state: &mut UIState, ui: &Ui) {
 		} else {
 			let font = ui.push_font(state.fonts.ocr_label);
 			let color = ui.push_style_color(imgui::StyleColor::Text, [1.0, 0.0, 0.0, 1.0]);
-			let h = ui.calc_text_size("No minimap bounds detected")[1];
+			let text = "No minimap bounds detected or we don't need to detect them";
+			let h = ui.calc_text_size(text)[1];
 			ui.set_cursor_pos([10.0, state.display_size[1] - 10.0 - h]);
-			ui.text("No minimap bounds detected");
+			ui.text(text);
 			font.end();
 			color.end();
 		}
