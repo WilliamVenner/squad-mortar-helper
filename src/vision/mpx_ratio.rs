@@ -19,50 +19,44 @@ pub fn calc_meters_to_px_ratio(threads: &mut rayon::ThreadPool, scales: SmallVec
 				// Go right...
 				let mut right = 0;
 				'right: for x in x..image.width() {
-					let pixel = image.get_pixel_fast(x, y);
-					if pixel.0[0] != 0 {
-						let x = x - 1;
-
-						// Make sure this is the vertical line upwards
-						for y in (y..y + MIN_SCALE_VERTICAL_BAR_HEIGHT).chain((y..y - MIN_SCALE_VERTICAL_BAR_HEIGHT).rev()) {
-							let pixel = image.get_pixel_fast(x, y);
-							if pixel.0[0] != 0 {
-								continue 'right;
-							}
+					// Make sure this is the vertical line upwards
+					for y in (y..y + MIN_SCALE_VERTICAL_BAR_HEIGHT).chain((y..y - MIN_SCALE_VERTICAL_BAR_HEIGHT).rev()) {
+						let pixel = image.get_pixel_fast(x, y);
+						if pixel.0[0] != 0 {
+							continue 'right;
 						}
-
-						right = x;
-						break;
 					}
+
+					right = x;
+					break;
 				}
 				if right == 0 {
 					continue 'y;
+				} else {
+					right -= 1;
 				}
 
 				// Go left...
 				let mut left = 0;
 				'left: for x in (0..x).rev() {
-					let pixel = image.get_pixel_fast(x, y);
-					if pixel.0[0] != 0 {
-						let x = x + 1;
-
-						// Make sure this is the vertical line upwards
-						for y in (y..y + MIN_SCALE_VERTICAL_BAR_HEIGHT).chain((y..y - MIN_SCALE_VERTICAL_BAR_HEIGHT).rev()) {
-							let pixel = image.get_pixel_fast(x, y);
-							if pixel.0[0] != 0 {
-								continue 'left;
-							}
+					// Make sure this is the vertical line upwards
+					for y in (y..y + MIN_SCALE_VERTICAL_BAR_HEIGHT).chain((y..y - MIN_SCALE_VERTICAL_BAR_HEIGHT).rev()) {
+						let pixel = image.get_pixel_fast(x, y);
+						if pixel.0[0] != 0 {
+							continue 'left;
 						}
-
-						left = x;
-						break;
 					}
+
+					left = x;
+					break;
 				}
 				if left == 0 {
 					continue 'y;
+				} else {
+					left += 1;
 				}
 
-				let width = (right - left) + 1;
+				let width = right - left;
 				if width < MIN_SCALE_WIDTH {
 					continue 'y;
 				}
