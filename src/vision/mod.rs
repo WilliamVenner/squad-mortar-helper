@@ -11,9 +11,6 @@ use mpx_ratio::calc_meters_to_px_ratio;
 mod find_minimap;
 use find_minimap::find_minimap;
 
-mod penetrate_blips;
-use penetrate_blips::penetrate_blips;
-
 struct DebugWaterfall(*mut Option<Duration>, Instant);
 impl Drop for DebugWaterfall {
 	#[inline(always)]
@@ -85,8 +82,6 @@ impl VisionState {
 				..Default::default()
 			};
 
-			let detect_markers = SETTINGS.detect_markers();
-
 			let minimap_bounds = if squadex::heightmaps::is_set() {
 				debug_waterfall!(find_minimap => find_minimap(&mut self.find_minimap_threads, vision.get_cpu_frame().view(x, y, w, h)))
 			} else {
@@ -94,7 +89,7 @@ impl VisionState {
 			};
 
 			let mut markers = || {
-				Ok::<_, AnyError>(if detect_markers {
+				Ok::<_, AnyError>(if SETTINGS.detect_markers() {
 					vision.thread_ctx()?;
 
 					// Isolate green pixels, i.e., squad map markers
@@ -127,8 +122,8 @@ impl VisionState {
 				})
 			};
 
-			let meters_to_px_ratio = if !detect_markers || minimap_bounds.is_some() {
-				// We don't need to do this if we aren't detecting markers, or a heightmap is set
+			let meters_to_px_ratio = if minimap_bounds.is_some() {
+				// Minimap bounds detection implies a heightmap is selected, so we can use information from the heightmap to calculate meters instead
 				None
 			} else {
 				Some(|| {

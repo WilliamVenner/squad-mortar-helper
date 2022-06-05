@@ -6,10 +6,12 @@ type MinimapFrame<'a> = image::SubImage<&'a image::ImageBuffer<image::Bgra<u8>, 
 
 #[inline]
 /// Returns the maximum absolute difference between all the pixels surrounding the given pixel divided by 255 * 3
-fn get_edginess<I>(image: &I, x: u32, y: u32) -> f32
+pub fn get_edginess<I>(image: &I, x: u32, y: u32) -> f32
 where
 	I: image::GenericImageView<Pixel = image::Bgra<u8>>
 {
+	debug_assert!(x > 0 && y > 0 && x < image.width() - 1 && y < image.height() - 1, "x and y need to have 1px space around them");
+
 	let perimeter = [
 		(x - 1, y - 1),
 		(x, y - 1),
