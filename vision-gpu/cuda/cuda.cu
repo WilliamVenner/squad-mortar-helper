@@ -518,11 +518,14 @@ extern "C" __global__ void find_scales_preprocess(
 
 extern "C" __global__ void isolate_map_markers(
 	RGB *const input,
-	WH(w, h),
+	WH(w, h)
 
+	/*
 	markers::TemplateMatch *const marked_map_marker_pixels,
 	uint32_t *const marked_map_marker_pixels_count,
-	const uint32_t marker_size)
+	const uint32_t marker_size
+	*/
+)
 {
 	const unsigned int x = threadIdx.x + blockIdx.x * blockDim.x;
 	const unsigned int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -534,12 +537,12 @@ extern "C" __global__ void isolate_map_markers(
 	{
 		input[y * w + x] = RGB(0, 0, 0);
 	}
-	else if (x < w - marker_size && y < h - marker_size)
+	/*else if (x < w - marker_size && y < h - marker_size)
 	{
 		marked_map_marker_pixels[atomicAdd(marked_map_marker_pixels_count, 1)] = markers::TemplateMatch{
 			y * w + x,
 			0};
-	}
+	}*/
 }
 
 extern "C" __global__ void filter_map_marker_icons(
