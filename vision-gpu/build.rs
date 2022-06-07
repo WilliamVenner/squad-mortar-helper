@@ -39,22 +39,27 @@ fn cuda() {
 			.unwrap()
 			.read_dir()
 			.ok()
-			.and_then(|dir| {
+			.map(|dir| {
 				dir.filter_map(|entry| {
 					entry
 						.ok()
 						.and_then(|entry| if entry.file_type().ok()?.is_file() { Some(entry.path()) } else { None })
 				})
-				.find(|path| {
+				.filter(|path| {
 					path.extension() == Some(std::ffi::OsStr::new("dll"))
 						&& path
 							.file_name()
 							.and_then(|name| name.to_str())
-							.map(|name| name.starts_with("nppim64"))
+							.map(|name| name.starts_with("nppim64") || name.starts_with("nppc64"))
 							.unwrap_or(false)
 				})
+				.collect::<Vec<_>>()
 			})
-			.expect("Failed to find nppim dll");
+			.unwrap_or_default();
+
+		if dll.len() != 2 {
+			panic!("nppim/nppc dll not found");
+		}
 
 		let mut out = Path::new(&std::env::var("OUT_DIR").unwrap()).to_path_buf();
 		if !out.join("deps").is_dir() {
@@ -62,9 +67,11 @@ fn cuda() {
 			out.pop();
 			out.pop();
 		}
-		out.push(dll.file_name().unwrap());
 
-		std::fs::copy(dll, out).expect("Failed to copy nppim dll"); // ughhhh
+		for dll in dll {
+			// ughhhh
+			std::fs::copy(&dll, out.join(dll.file_name().unwrap())).expect("Failed to copy nppim dll");
+		}
 	} else {
 		cc::Build::new()
 			.cuda(true)

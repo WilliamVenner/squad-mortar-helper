@@ -121,6 +121,7 @@ jobs:
         copy target\x86_64-pc-windows-msvc\release\CUE4Parse-Natives.dll squad-mortar-helper\CUE4Parse-Natives.dll
         copy target\x86_64-pc-windows-msvc\release\SquadHeightmapRipper.exe squad-mortar-helper\SquadHeightmapRipper.exe
         copy target\x86_64-pc-windows-msvc\release\nppim*.dll squad-mortar-helper\
+        copy target\x86_64-pc-windows-msvc\release\nppc*.dll squad-mortar-helper\
         tar.exe -a -c -f smh-win64.zip squad-mortar-helper
 
     - name: Release
