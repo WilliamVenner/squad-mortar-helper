@@ -222,11 +222,14 @@ pub(super) fn render(state: &mut UIState, ui: &Ui) {
 			// Update web users
 			if let Some(web) = &mut state.web.server {
 				web.send(smh_web::Event::Map { map });
-				web.send(smh_web::Event::Markers {
-					custom: false,
-					markers: state.vision.markers.iter().map(|marker| [marker.p0, marker.p1]).collect::<Box<_>>(),
-				});
 			}
+		}
+
+		if let Some(web) = &mut state.web.server {
+			web.send(smh_web::Event::Markers {
+				custom: false,
+				markers: state.vision.markers.iter().map(|marker| [marker.p0, marker.p1]).collect::<Box<_>>(),
+			});
 		}
 	}
 

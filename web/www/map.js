@@ -170,10 +170,6 @@ function draw_marker(ctx, marker, color) {
 	ctx.textBaseline = 'top';
 	ctx.fillStyle = 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
 
-	if (meters_to_px_ratio === null) {
-		return;
-	}
-
 	var heightmap_data = calc_alt_delta([marker.p0x, marker.p0y], [marker.p1x, marker.p1y]);
 	var alt_delta = null;
 	var meters;
@@ -181,9 +177,11 @@ function draw_marker(ctx, marker, color) {
 	if (heightmap_data) {
 		alt_delta = heightmap_data[0];
 		meters = heightmap_data[1];
-	} else {
+	} else if (meters_to_px_ratio !== null) {
 		var dist = Math.sqrt(((marker.p0x - marker.p1x) ** 2) + ((marker.p0y - marker.p1y) ** 2));
 		meters = meters_to_px_ratio * dist;
+	} else {
+		return;
 	}
 
 	var milliradians = milliradians_from_meters(meters, alt_delta);
