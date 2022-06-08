@@ -247,6 +247,7 @@ pub struct HeightmapsUIState {
 
 	pub selected_heightmap: Option<(imgui::TextureId, [f32; 2], [f32; 2])>,
 	pub draw_heightmap: bool,
+	pub use_heightmap_offset: bool,
 
 	window_open: bool,
 	selected_layer: i32,
@@ -276,6 +277,7 @@ impl Default for HeightmapsUIState {
 			heightmap: ImCell::new(LoadHeightmapOp::load_heightmap, Some(ui::redraw)),
 			heightmap_texture: None,
 			selected_heightmap: None,
+			use_heightmap_offset: true,
 
 			draw_heightmap: Default::default(),
 			window_open: Default::default(),
@@ -313,6 +315,15 @@ pub(super) fn menu_bar(state: &mut UIState, ui: &Ui) {
 		.build(ui)
 	{
 		state.heightmaps.draw_heightmap = !state.heightmaps.draw_heightmap;
+	}
+
+	// TODO replace with modal "Does this heightmap fit?"
+	if imgui::MenuItem::new("Use Heightmap Offset")
+		.enabled(is_set)
+		.selected(state.heightmaps.use_heightmap_offset)
+		.build(ui)
+	{
+		state.heightmaps.use_heightmap_offset = !state.heightmaps.use_heightmap_offset;
 	}
 
 	menu.end();
@@ -704,9 +715,13 @@ pub(super) fn render_overlay(state: &mut UIState, ui: &Ui) {
 				// 1. Add offset to the heightmap position, anchoring the heightmap to the bottom right corner
 				// 2. Scale the heightmap to the minimap size
 
-				let hm_scale_factor_w = (minimap_viewport.right - minimap_viewport.left) as f32 / (width + offset[0]);
-				let hm_scale_factor_h = (minimap_viewport.bottom - minimap_viewport.top) as f32 / (height + offset[1]);
-				let offset = [offset[0] * hm_scale_factor_w * state.map.viewport.scale_factor_w, offset[1] * hm_scale_factor_h * state.map.viewport.scale_factor_h];
+				let offset = if state.heightmaps.use_heightmap_offset {
+					let hm_scale_factor_w = (minimap_viewport.right - minimap_viewport.left) as f32 / (width + offset[0]);
+					let hm_scale_factor_h = (minimap_viewport.bottom - minimap_viewport.top) as f32 / (height + offset[1]);
+					[offset[0] * hm_scale_factor_w * state.map.viewport.scale_factor_w, offset[1] * hm_scale_factor_h * state.map.viewport.scale_factor_h]
+				} else {
+					[0.0, 0.0]
+				};
 
 				let minimap_viewport = Rect {
 					left: state.map.viewport.translate_x(minimap_viewport.left as f32) + offset[0],

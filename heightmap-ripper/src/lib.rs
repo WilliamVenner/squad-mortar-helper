@@ -1,8 +1,4 @@
-use std::{
-	io::Cursor,
-	path::PathBuf,
-	process::Command, sync::Arc,
-};
+use std::{io::Cursor, path::PathBuf, process::Command, sync::Arc};
 
 use byteorder::{ReadBytesExt, LE};
 
@@ -14,7 +10,7 @@ pub struct Heightmap {
 	pub height: u32,
 	pub bounds: [[i32; 2]; 2],
 	pub scale: [f32; 3],
-	pub data: Arc<[u16]>,
+	pub data: Arc<[u16]>
 }
 impl Heightmap {
 	#[inline]
@@ -23,9 +19,10 @@ impl Heightmap {
 	}
 
 	#[inline]
-	pub fn get_height(&self, x: u32, y: u32) -> Option<u16> {
-		let idx = ((y as i32 + self.bounds[0][1]) * self.width as i32) + (x as i32 + self.bounds[0][0]);
-		self.data.get::<usize>(idx.try_into().ok()?).copied()
+	pub fn height(&self, x: usize, y: usize) -> i32 {
+		let height = self.data[y * self.width as usize + x];
+		let height = (height as f64 / u16::MAX as f64) * (self.scale[2] as f64 / 0.1953125);
+		height.round() as i32
 	}
 }
 impl core::ops::Index<(u32, u32)> for Heightmap {
@@ -66,7 +63,8 @@ pub fn find_squad_dir() -> Option<PathBuf> {
 fn invoke() -> Command {
 	let mut cmd = Command::new("SquadHeightmapRipper");
 
-	#[cfg(windows)] {
+	#[cfg(windows)]
+	{
 		use std::os::windows::process::CommandExt;
 		cmd.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
 	}
@@ -74,7 +72,11 @@ fn invoke() -> Command {
 	cmd
 }
 
-pub fn get_heightmap(paks_dirs: impl Iterator<Item = impl AsRef<str>>, aes_key: Option<impl AsRef<str>>, map_path: impl AsRef<str>) -> Result<Option<Heightmap>, Error> {
+pub fn get_heightmap(
+	paks_dirs: impl Iterator<Item = impl AsRef<str>>,
+	aes_key: Option<impl AsRef<str>>,
+	map_path: impl AsRef<str>,
+) -> Result<Option<Heightmap>, Error> {
 	log::info!("Generating heightmap...");
 	log::info!("Map: {}", map_path.as_ref());
 
@@ -119,50 +121,52 @@ pub fn get_heightmap(paks_dirs: impl Iterator<Item = impl AsRef<str>>, aes_key: 
 
 	let bounds = [
 		[output.read_i32::<LE>()?, output.read_i32::<LE>()?],
-		[output.read_i32::<LE>()?, output.read_i32::<LE>()?]
+		[output.read_i32::<LE>()?, output.read_i32::<LE>()?],
 	];
 
 	let scale = [output.read_f32::<LE>()?, output.read_f32::<LE>()?, output.read_f32::<LE>()?];
+
+	let data: Arc<[u16]> = {
+		let pos = output.position() as usize;
+		let output = output.into_inner();
+		let output = &output[pos..];
+
+		// If the output is completely blank, it means this layer doesn't have a heightmap
+		if !output.iter().copied().any(|byte| byte != 0) {
+			log::info!("Heightmap has no data (all zero)");
+			return Ok(None);
+		}
+
+		let mut data = Vec::with_capacity((output.len() / 2) as usize);
+
+		let (prefix, shorts, suffix) = unsafe { output.align_to::<u16>() };
+
+		// Copy prefix into data
+		prefix
+			.chunks_exact(2)
+			.map(|bytes| [bytes[0], bytes[1]])
+			.map(u16::from_le_bytes)
+			.for_each(|height| data.push(height));
+
+		// Faster memcpy
+		data.extend_from_slice(shorts);
+
+		// Copy suffix into data
+		suffix
+			.chunks_exact(2)
+			.map(|bytes| [bytes[0], bytes[1]])
+			.map(u16::from_le_bytes)
+			.for_each(|height| data.push(height));
+
+		Arc::from(data)
+	};
 
 	Ok(Some(Heightmap {
 		width,
 		height,
 		bounds,
 		scale,
-		data: {
-			let pos = output.position() as usize;
-			let output = output.into_inner();
-			let output = &output[pos..];
-
-			// If the output is completely blank, it means this layer doesn't have a heightmap
-			if !output.iter().copied().any(|byte| byte != 0) {
-				log::info!("Heightmap has no data (all zero)");
-				return Ok(None);
-			}
-
-			let mut data = Vec::with_capacity((output.len() / 2) as usize);
-
-			let (prefix, shorts, suffix) = unsafe { output.align_to::<u16>() };
-
-			// Copy prefix into data
-			prefix
-				.chunks_exact(2)
-				.map(|bytes| [bytes[0], bytes[1]])
-				.map(u16::from_le_bytes)
-				.for_each(|height| data.push(height));
-
-			// Faster memcpy
-			data.extend_from_slice(shorts);
-
-			// Copy suffix into data
-			suffix
-				.chunks_exact(2)
-				.map(|bytes| [bytes[0], bytes[1]])
-				.map(u16::from_le_bytes)
-				.for_each(|height| data.push(height));
-
-			Arc::from(data)
-		},
+		data
 	}))
 }
 
@@ -213,9 +217,7 @@ pub fn list_maps(paks_dirs: impl Iterator<Item = impl AsRef<str>>, aes_key: Opti
 			})
 		})
 		.filter_map(|line| std::str::from_utf8(line).ok())
-		.filter(|line| {
-			line.contains("/Content/Maps/")
-		})
+		.filter(|line| line.contains("/Content/Maps/"))
 		.filter(|line| {
 			![
 				"/lighting_layers/",
