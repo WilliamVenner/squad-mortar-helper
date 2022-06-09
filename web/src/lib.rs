@@ -203,6 +203,13 @@ events! {
 				buf.write_all(&[0])?;
 			}
 		}
+	},
+
+	HeightmapFitToMinimap { fit_to_minimap: bool } => {
+		size => 1,
+		serialize => {
+			buf.write_all(&[*fit_to_minimap as u8])?;
+		}
 	}
 }
 
@@ -214,6 +221,7 @@ pub struct EventData {
 	pub meters_to_px_ratio: Option<f64>,
 	pub minimap_bounds: Option<Rect<u32>>,
 	pub heightmap: Option<smh_heightmap_ripper::Heightmap>,
+	pub heightmap_fit_to_minimap: bool,
 }
 
 pub struct WebServer {
@@ -374,6 +382,9 @@ async fn server(
 						},
 						Event::Heightmap { heightmap } => {
 							event_data.heightmap = heightmap.clone();
+						},
+						Event::HeightmapFitToMinimap { fit_to_minimap } => {
+							event_data.heightmap_fit_to_minimap = *fit_to_minimap;
 						},
 
 						_ => {}

@@ -30,25 +30,29 @@ pub(super) async fn accept_ws_connection(
 
 	// Send the initial event data to the client
 	{
+		use tokio_tungstenite::tungstenite::Message::Binary;
+
 		if event_data.map.dimensions() != (0, 0) {
-			w.send(tokio_tungstenite::tungstenite::Message::Binary(Event::Map { map: event_data.map }.serialize())).await?;
+			w.send(Binary(Event::Map { map: event_data.map }.serialize())).await?;
 		}
 
 		if event_data.meters_to_px_ratio.is_some() || event_data.minimap_bounds.is_some() {
-			w.send(tokio_tungstenite::tungstenite::Message::Binary(Event::UpdateState { meters_to_px_ratio: event_data.meters_to_px_ratio, minimap_bounds: event_data.minimap_bounds }.serialize())).await?;
+			w.send(Binary(Event::UpdateState { meters_to_px_ratio: event_data.meters_to_px_ratio, minimap_bounds: event_data.minimap_bounds }.serialize())).await?;
 		}
 
 		if !event_data.computer_vision_markers.is_empty() {
-			w.send(tokio_tungstenite::tungstenite::Message::Binary(Event::Markers { custom: false, markers: event_data.computer_vision_markers }.serialize())).await?;
+			w.send(Binary(Event::Markers { custom: false, markers: event_data.computer_vision_markers }.serialize())).await?;
 		}
 
 		if !event_data.custom_markers.is_empty() {
-			w.send(tokio_tungstenite::tungstenite::Message::Binary(Event::Markers { custom: true, markers: event_data.custom_markers }.serialize())).await?;
+			w.send(Binary(Event::Markers { custom: true, markers: event_data.custom_markers }.serialize())).await?;
 		}
 
 		if let Some(ref heightmap) = event_data.heightmap {
-			w.send(tokio_tungstenite::tungstenite::Message::Binary(Event::Heightmap { heightmap: Some(heightmap.clone()) }.serialize())).await?;
+			w.send(Binary(Event::Heightmap { heightmap: Some(heightmap.clone()) }.serialize())).await?;
 		}
+
+		w.send(Binary(Event::HeightmapFitToMinimap { fit_to_minimap: event_data.heightmap_fit_to_minimap }.serialize())).await?;
 	}
 
 	loop {

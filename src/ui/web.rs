@@ -101,7 +101,8 @@ pub(super) fn render_popup(state: &mut UIState, ui: &Ui) {
 						custom_markers: Box::from(&*state.draw.custom_markers),
 						meters_to_px_ratio: state.vision.meters_to_px_ratio,
 						minimap_bounds: state.vision.minimap_bounds,
-						heightmap: squadex::heightmaps::get_current().as_deref().map(ToOwned::to_owned)
+						heightmap: squadex::heightmaps::get_current().as_deref().map(ToOwned::to_owned),
+						heightmap_fit_to_minimap: state.heightmaps.fit_to_minimap
 					};
 
 					let port = (*port).max(0).min(u16::MAX as i32) as u16;

@@ -12,6 +12,7 @@ var overlay = overlay_canvas.getContext('2d');
 var meters_to_px_ratio = null;
 var minimap_viewport = null;
 var heightmap = null;
+var heightmap_fit_to_minimap = false;
 
 var CUSTOM_MARKER_COLOR = [255, 0.0, 255];
 var MEASURE_MARKER_COLOR = [255, 0.0, 0.0];
@@ -115,9 +116,14 @@ function calc_alt_delta(p0, p1) {
 	var p0 = translate_map_xy(p0);
 	var p1 = translate_map_xy(p1);
 
-	var hm_scale_factor_w = (minimap_viewport.right - minimap_viewport.left) / (heightmap.width + heightmap.offset[0]);
-	var hm_scale_factor_h = (minimap_viewport.bottom - minimap_viewport.top) / (heightmap.height + heightmap.offset[1]);
-	var offset = [heightmap.offset[0] * hm_scale_factor_w * map_viewport.scale_factor_w, heightmap.offset[1] * hm_scale_factor_h * map_viewport.scale_factor_h];
+	var offset;
+	if (heightmap_fit_to_minimap) {
+		offset = [0, 0];
+	} else {
+		var hm_scale_factor_w = (minimap_viewport.right - minimap_viewport.left) / (heightmap.width + heightmap.offset[0]);
+		var hm_scale_factor_h = (minimap_viewport.bottom - minimap_viewport.top) / (heightmap.height + heightmap.offset[1]);
+		offset = [heightmap.offset[0] * hm_scale_factor_w * map_viewport.scale_factor_w, heightmap.offset[1] * hm_scale_factor_h * map_viewport.scale_factor_h];
+	}
 
 	var fitted_minimap_viewport = {
 		left: translate_map_x(minimap_viewport.left) + offset[0],
@@ -481,6 +487,11 @@ function map_event(event, data) {
 				heightmap = null;
 			}
 
+			draw_markers();
+			break;
+
+		case WS_EVENT_FIT_HEIGHTMAP_TO_MINIMAP: // FitHeightmapToMinimap
+			heightmap_fit_to_minimap = new DataView(data).getUint8(0) === 1;
 			draw_markers();
 			break;
 

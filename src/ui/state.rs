@@ -96,6 +96,7 @@ impl UIState {
 		debug::render_vision_debugger(self, ui);
 
 		heightmaps::render_window(self, ui);
+		heightmaps::render_fit_modal(self, ui);
 		logs::render_window(self, ui);
 		web::render_popup(self, ui);
 		about::render_star_pls(self, ui);

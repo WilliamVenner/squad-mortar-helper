@@ -36,7 +36,7 @@ pub(super) fn draw(state: &UIState, ui: &Ui, marker: &Marker, color: [f32; 3], d
 	let mut alt_delta = None;
 	if let Some(minimap_viewport) = state.vision.minimap_bounds {
 		if let Some(heightmap) = squadex::heightmaps::get_current() {
-			let offset = if state.heightmaps.use_heightmap_offset {
+			let offset = if !state.heightmaps.fit_to_minimap() {
 				let offset = [heightmap.bounds[0][0] as f32, heightmap.bounds[0][1] as f32];
 
 				let hm_scale_factor_w = minimap_viewport.width() as f32 / (heightmap.width as f32 + offset[0]);

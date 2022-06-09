@@ -2,6 +2,16 @@ use super::*;
 use atomic_refcell::AtomicRef;
 use smh_heightmap_ripper::Heightmap;
 
+fn set_fit_to_minimap(state: &mut UIState, value: bool) {
+	state.heightmaps.fit_to_minimap = value;
+
+	if let Some(ref web) = state.web.server {
+		web.send(smh_web::Event::HeightmapFitToMinimap {
+			fit_to_minimap: value
+		});
+	}
+}
+
 const AES_KEY: &str = "0xBC0C07592D6B17BAB88B83A68583A053A6D9A0450CB54ABF5C231DBA59A7466B";
 
 enum LoadedHeightmap {
@@ -246,11 +256,31 @@ pub struct HeightmapsUIState {
 	heightmap_texture: Option<imgui::TextureId>,
 
 	pub selected_heightmap: Option<(imgui::TextureId, [f32; 2], [f32; 2])>,
-	pub draw_heightmap: bool,
-	pub use_heightmap_offset: bool,
+	draw_heightmap: bool,
+
+	/// When TRUE, the heightmap will be extended to the bounds of the minimap
+	///
+	/// When FALSE, the heightmap will be offset to its starting point on the minimap
+	pub fit_to_minimap: bool,
+	fit_to_minimap_hover: bool,
+
+	fit_modal: bool,
+	fit_modal_opened: bool,
+	fit_modal_hover: bool,
 
 	window_open: bool,
 	selected_layer: i32,
+}
+impl HeightmapsUIState {
+	#[inline]
+	pub fn draw_heightmap(&self) -> bool {
+		self.draw_heightmap || self.fit_modal || self.fit_to_minimap_hover
+	}
+
+	#[inline]
+	pub fn fit_to_minimap(&self) -> bool {
+		self.fit_modal_hover || ((self.fit_to_minimap ^ self.fit_to_minimap_hover) && !self.fit_modal)
+	}
 }
 impl Default for HeightmapsUIState {
 	fn default() -> Self {
@@ -277,11 +307,16 @@ impl Default for HeightmapsUIState {
 			heightmap: ImCell::new(LoadHeightmapOp::load_heightmap, Some(ui::redraw)),
 			heightmap_texture: None,
 			selected_heightmap: None,
-			use_heightmap_offset: true,
+			fit_to_minimap: true,
+			fit_to_minimap_hover: false,
 
 			draw_heightmap: Default::default(),
 			window_open: Default::default(),
 			selected_layer: -1,
+
+			fit_modal: false,
+			fit_modal_opened: false,
+			fit_modal_hover: false
 		}
 	}
 }
@@ -289,7 +324,10 @@ impl Default for HeightmapsUIState {
 pub(super) fn menu_bar(state: &mut UIState, ui: &Ui) {
 	let menu = match ui.begin_menu("Heightmaps") {
 		Some(it) => it,
-		_ => return,
+		_ => {
+			state.heightmaps.fit_to_minimap_hover = false;
+			return;
+		}
 	};
 
 	if imgui::MenuItem::new("Select...").build(ui) {
@@ -317,16 +355,59 @@ pub(super) fn menu_bar(state: &mut UIState, ui: &Ui) {
 		state.heightmaps.draw_heightmap = !state.heightmaps.draw_heightmap;
 	}
 
-	// TODO replace with modal "Does this heightmap fit?"
-	if imgui::MenuItem::new("Use Heightmap Offset")
+	if imgui::MenuItem::new("Fit to Minimap")
 		.enabled(is_set)
-		.selected(state.heightmaps.use_heightmap_offset)
+		.selected(state.heightmaps.fit_to_minimap)
 		.build(ui)
 	{
-		state.heightmaps.use_heightmap_offset = !state.heightmaps.use_heightmap_offset;
+		state.heightmaps.fit_to_minimap_hover = false;
+		set_fit_to_minimap(state, !state.heightmaps.fit_to_minimap);
+	} else if is_set && !state.heightmaps.fit_modal {
+		state.heightmaps.fit_to_minimap_hover = ui.is_item_hovered();
 	}
 
 	menu.end();
+}
+
+pub(super) fn render_fit_modal(state: &mut UIState, ui: &Ui) {
+	if !state.heightmaps.fit_modal {
+		return;
+	}
+
+	if !state.heightmaps.fit_modal_opened {
+		state.heightmaps.fit_modal_opened = true;
+		ui.open_popup("Fit to Minimap");
+	}
+
+	let bg = ui.push_style_color(imgui::StyleColor::ModalWindowDimBg, [0.0, 0.0, 0.0, 0.0]);
+
+	if let Some(modal) = imgui::PopupModal::new("Fit to Minimap").resizable(false).begin_popup(ui) {
+		ui.text("Does this look right?\n\nYou should see the heightmap overlayed over the minimap.\nSome heightmaps don't fit properly onto every minimap.\n\nYou can change this at any time in Heightmaps > Fit to minimap.");
+		ui.spacing();
+
+		let yes = ui.button("Yes");
+		if yes {
+			set_fit_to_minimap(state, false);
+			state.heightmaps.fit_modal = false;
+			state.heightmaps.fit_modal_hover = false;
+			ui.close_current_popup();
+		}
+
+		ui.same_line();
+
+		if ui.button("No") {
+			set_fit_to_minimap(state, true);
+			state.heightmaps.fit_modal = false;
+			state.heightmaps.fit_modal_hover = false;
+			ui.close_current_popup();
+		} else if !yes {
+			state.heightmaps.fit_modal_hover = ui.is_item_hovered();
+		}
+
+		modal.end();
+	}
+
+	bg.pop();
 }
 
 pub(super) fn render_window(state: &mut UIState, ui: &Ui) {
@@ -510,6 +591,9 @@ pub(super) fn render_window(state: &mut UIState, ui: &Ui) {
 								LoadedHeightmap::Generated(heightmap) => heightmap,
 								LoadedHeightmap::Loaded { heightmap, .. } => heightmap,
 							}));
+
+							state.heightmaps.fit_modal = true;
+							state.heightmaps.fit_modal_opened = false;
 
 							return;
 						}
@@ -708,14 +792,14 @@ pub(super) fn render_window(state: &mut UIState, ui: &Ui) {
 }
 
 pub(super) fn render_overlay(state: &mut UIState, ui: &Ui) {
-	if state.heightmaps.draw_heightmap {
+	if state.heightmaps.draw_heightmap() {
 		if let Some((texture_id, offset, [width, height])) = state.heightmaps.selected_heightmap {
 			if let Some(minimap_viewport) = state.vision.minimap_bounds {
 				// To position the heightmap:
 				// 1. Add offset to the heightmap position, anchoring the heightmap to the bottom right corner
 				// 2. Scale the heightmap to the minimap size
 
-				let offset = if state.heightmaps.use_heightmap_offset {
+				let offset = if !state.heightmaps.fit_to_minimap() {
 					let hm_scale_factor_w = (minimap_viewport.right - minimap_viewport.left) as f32 / (width + offset[0]);
 					let hm_scale_factor_h = (minimap_viewport.bottom - minimap_viewport.top) as f32 / (height + offset[1]);
 					[offset[0] * hm_scale_factor_w * state.map.viewport.scale_factor_w, offset[1] * hm_scale_factor_h * state.map.viewport.scale_factor_h]
