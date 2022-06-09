@@ -19,10 +19,9 @@ impl Heightmap {
 	}
 
 	#[inline]
-	pub fn height(&self, x: usize, y: usize) -> i32 {
+	pub fn height(&self, x: usize, y: usize) -> f64 {
 		let height = self.data[y * self.width as usize + x];
-		let height = (height as f64 / u16::MAX as f64) * (self.scale[2] as f64 / 0.1953125);
-		height.round() as i32
+		(height as f64 / u16::MAX as f64) * (self.scale[2] as f64 / 0.1953125)
 	}
 }
 impl core::ops::Index<(u32, u32)> for Heightmap {

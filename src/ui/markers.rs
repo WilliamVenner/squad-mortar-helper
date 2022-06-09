@@ -83,7 +83,7 @@ pub(super) fn draw(state: &UIState, ui: &Ui, marker: &Marker, color: [f32; 3], d
 				&& p1_x < heightmap.width as i32
 				&& p1_y < heightmap.height as i32
 			{
-				alt_delta = Some((heightmap.height(p1_x as _, p1_y as _) as i32 - heightmap.height(p0_x as _, p0_y as _) as i32) as f64);
+				alt_delta = Some(heightmap.height(p1_x as _, p1_y as _) - heightmap.height(p0_x as _, p0_y as _));
 			} else {
 				meters = None;
 			}
@@ -121,7 +121,7 @@ pub(super) fn draw(state: &UIState, ui: &Ui, marker: &Marker, color: [f32; 3], d
 	let font = ui.push_font(state.fonts.marker_label);
 
 	if let Some(alt_delta_fwd) = alt_delta {
-		let alt_delta_bck = alt_delta_fwd * -1.0;
+		let alt_delta_bck = -alt_delta_fwd;
 
 		let meters_text = bumpalo::format!(in &state.ui_fmt_alloc, "{:.0}m\n±{}m alt", meters, (alt_delta_fwd as i32).abs() as u32);
 		let meters_text_size = ui.calc_text_size(&meters_text);

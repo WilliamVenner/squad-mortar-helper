@@ -25,6 +25,10 @@ pub fn rebuild_html() -> String {
 		index = format!("{}<style>{contents}</style>{}", &index[..start], &index[start + end + CSS_SURGERY_END.len()..]);
 	}
 
+	if cfg!(not(build_assertions)) {
+		index.replace_range(index.find("<!--RELEASE-->").unwrap().."<!--RELEASE-->".len(), "<script type=\"text/javascript\">window.RELEASE = true;</script>");
+	}
+
 	index
 }
 

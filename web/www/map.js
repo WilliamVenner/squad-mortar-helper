@@ -149,7 +149,10 @@ function calc_alt_delta(p0, p1) {
 		var p0 = heightmap.data[p0_y * heightmap.width + p0_x];
 		var p1 = heightmap.data[p1_y * heightmap.width + p1_x];
 
-		return [Math.round(Math.abs(p0 - p1) / heightmap.scale), meters];
+		p0 = (p0 / 65535) * (heightmap.scale / 0.1953125);
+		p1 = (p1 / 65535) * (heightmap.scale / 0.1953125);
+
+		return [Math.round(p1 - p0), meters];
 	} else {
 		return null;
 	}
@@ -184,64 +187,145 @@ function draw_marker(ctx, marker, color) {
 		return;
 	}
 
-	var milliradians = milliradians_from_meters(meters, alt_delta);
-
 	var angle = Math.atan2(marker.p0y - marker.p1y, marker.p0x - marker.p1x);
-	if (angle >= Math.PI / 2) {
-		angle -= Math.PI;
-	} else if (angle <= -Math.PI / 2) {
-		angle += Math.PI;
-	}
 
-	var bearing = angle * 180 / Math.PI;
-	if (bearing > 0) {
-		bearing -= 90;
-		if (bearing < 0) {
-			bearing += 360;
+	var bearing_fwd = angle * 180 / Math.PI;
+	if (bearing_fwd > 0) {
+		bearing_fwd -= 90;
+		if (bearing_fwd < 0) {
+			bearing_fwd += 360;
 		}
 	} else {
-		bearing += 270;
+		bearing_fwd += 270;
 	}
-	var bearing_bck = (bearing + 180) % 360;
+	var bearing_bck = (bearing_fwd + 180) % 360;
 
-	var meters_text = Math.round(meters) + 'm';
-	var milliradians_text = isNaN(milliradians) ? 'RANGE!' : (Math.round(milliradians) + ' mils');
-	var alt_delta_text = (isNaN(alt_delta) || alt_delta === null) ? '' : (Math.round(alt_delta) + 'm alt');
-	var bearing_text;
-	var bearing_bck_text;
-	if (angle >= -(Math.PI / 2) && angle <= Math.PI / 2) {
-		bearing_text = '-> ' + Math.round(bearing_bck) + '°';
-		bearing_bck_text = '<- ' + Math.round(bearing) + '°';
-	} else {
-		bearing_text = '-> ' + Math.round(bearing) + '°';
-		bearing_bck_text = '<- ' + Math.round(bearing_bck) + '°';
+	var text_angle = angle;
+	if (text_angle >= Math.PI / 2) {
+		text_angle -= Math.PI;
+	} else if (text_angle <= -Math.PI / 2) {
+		text_angle += Math.PI;
 	}
-
-	var meters_text_height = ctx.measureText(meters_text).actualBoundingBoxDescent;
-	var milliradians_text_height = ctx.measureText(milliradians_text).actualBoundingBoxDescent;
-	var alt_delta_text_height = ctx.measureText(alt_delta_text).actualBoundingBoxDescent;
-	var bearing_text_height = ctx.measureText(bearing_text).actualBoundingBoxDescent;
 
 	var midpoint = [(marker.p0x + marker.p1x) / 2, (marker.p0y + marker.p1y) / 2];
 
 	ctx.save();
 	ctx.translate(midpoint[0], midpoint[1]);
-	ctx.rotate(angle);
+	ctx.rotate(text_angle);
+
+	var meters_text = Math.round(meters) + 'm';
+	var meters_text_height = ctx.measureText(meters_text).actualBoundingBoxDescent;
 
 	var line_height = meters_text_height * 0.35;
 
-	var i = line_height;
-	ctx.fillText(meters_text, 0, i);
-	i += line_height + meters_text_height;
-	ctx.fillText(milliradians_text, 0, i);
-	i += line_height + milliradians_text_height;
-	if (alt_delta_text) {
-		ctx.fillText(alt_delta_text, 0, i);
-		i += line_height + alt_delta_text_height;
+	if (isNaN(alt_delta) || alt_delta !== null) {
+		var alt_delta_text = '±' + Math.round(Math.abs(alt_delta)) + 'm alt';
+		var alt_delta_text_height = ctx.measureText(alt_delta_text).actualBoundingBoxDescent;
+
+		var alt_delta_fwd = alt_delta;
+		var alt_delta_bck = -alt_delta;
+
+		var flip = angle >= -(Math.PI / 2) && angle <= Math.PI / 2;
+
+		var fwd_text;
+		var bck_text;
+
+		{
+			var alt_delta;
+			var bearing;
+			if (flip) {
+				alt_delta = alt_delta_fwd;
+				bearing = bearing_fwd;
+			} else {
+				alt_delta = alt_delta_bck;
+				bearing = bearing_bck;
+			}
+
+			var milliradians = milliradians_from_meters(meters, alt_delta);
+
+			var milliradians_text = isNaN(milliradians) ? '<- RANGE!' : ('<- ' + Math.round(milliradians) + ' mil');
+			var bearing_text = Math.round(bearing) + '°';
+
+			fwd_text = [
+				milliradians_text,
+				bearing_text
+			];
+
+			if (!window.RELEASE) {
+				fwd_text.push(Math.round(alt_delta) + 'm alt');
+			}
+		}
+
+		{
+			var alt_delta;
+			var bearing;
+			if (flip) {
+				alt_delta = alt_delta_bck;
+				bearing = bearing_bck;
+			} else {
+				alt_delta = alt_delta_fwd;
+				bearing = bearing_fwd;
+			}
+
+			var milliradians = milliradians_from_meters(meters, alt_delta);
+
+			var milliradians_text = isNaN(milliradians) ? 'RANGE! ->' : (Math.round(milliradians) + ' mil ->');
+			var bearing_text = Math.round(bearing) + '°';
+
+			bck_text = [
+				milliradians_text,
+				bearing_text
+			];
+
+			if (!window.RELEASE) {
+				bck_text.push(Math.round(alt_delta) + 'm alt');
+			}
+		}
+
+		var y_base = line_height;
+		ctx.fillText(meters_text, 0, y_base);
+		y_base += line_height + meters_text_height;
+		ctx.fillText(alt_delta_text, 0, y_base);
+		y_base += line_height + alt_delta_text_height;
+
+		ctx.textAlign = 'right';
+		var y = y_base;
+		for (var i = 0; i < fwd_text.length; i++) {
+			ctx.fillText(fwd_text[i], -10, y);
+			y += line_height + ctx.measureText(fwd_text[i]).actualBoundingBoxDescent;
+		}
+
+		ctx.textAlign = 'left';
+		var y = y_base;
+		for (var i = 0; i < bck_text.length; i++) {
+			ctx.fillText(bck_text[i], 10, y);
+			y += line_height + ctx.measureText(bck_text[i]).actualBoundingBoxDescent;
+		}
+	} else {
+		var milliradians = milliradians_from_meters(meters, alt_delta);
+		var milliradians_text = isNaN(milliradians) ? 'RANGE!' : (Math.round(milliradians) + ' mils');
+		var bearing_text;
+		var bearing_bck_text;
+		if (angle >= -(Math.PI / 2) && angle <= Math.PI / 2) {
+			bearing_text = '-> ' + Math.round(bearing_bck) + '°';
+			bearing_bck_text = '<- ' + Math.round(bearing_fwd) + '°';
+		} else {
+			bearing_text = '-> ' + Math.round(bearing_fwd) + '°';
+			bearing_bck_text = '<- ' + Math.round(bearing_bck) + '°';
+		}
+
+		var milliradians_text_height = ctx.measureText(milliradians_text).actualBoundingBoxDescent;
+		var bearing_text_height = ctx.measureText(bearing_text).actualBoundingBoxDescent;
+
+		var i = line_height;
+		ctx.fillText(meters_text, 0, i);
+		i += line_height + meters_text_height;
+		ctx.fillText(milliradians_text, 0, i);
+		i += line_height + milliradians_text_height;
+		ctx.fillText(bearing_text, 0, i);
+		i += line_height + bearing_text_height;
+		ctx.fillText(bearing_bck_text, 0, i);
 	}
-	ctx.fillText(bearing_text, 0, i);
-	i += line_height + bearing_text_height;
-	ctx.fillText(bearing_bck_text, 0, i);
 
 	ctx.restore();
 }
