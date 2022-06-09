@@ -20,7 +20,7 @@ pub fn start<F: FnOnce() + 'static>(logs: logs::LogState, shutdown: F) -> ! {
 
 	let builder = WindowBuilder::new()
 		.with_resizable(true)
-		.with_title("Squad Mortar Helper by Billy")
+		.with_title(concat!("Squad Mortar Helper v", env!("CARGO_PKG_VERSION"), " by Billy"))
 		.with_transparent(true);
 
 	let display = Display::new(builder, context, &event_loop).expect("Failed to initialize display");
