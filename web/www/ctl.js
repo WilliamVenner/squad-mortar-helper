@@ -48,6 +48,12 @@ function apply_zoom_pan() {
 	draw_canvas.style.transform = transform;
 	map_canvas.style.transform = transform;
 	overlay_canvas.style.transform = transform;
+
+	if (map_zoom !== 0) {
+		ui_container.classList.add('zoomed');
+	} else {
+		ui_container.classList.remove('zoomed');
+	}
 }
 window.addEventListener('resize', apply_zoom_pan);
 apply_zoom_pan();

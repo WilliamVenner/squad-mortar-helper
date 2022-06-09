@@ -168,7 +168,11 @@ function draw_marker(ctx, marker, color) {
 	ctx.lineTo(marker.p1x, marker.p1y);
 	ctx.stroke();
 
-	ctx.font = '600 1.5em \'Inter\', sans-serif';
+	var max_text_size = 1.5;
+	var min_text_size = 0.75;
+	var text_size = (1 - (map_zoom / ZOOM_LEVELS)) * (max_text_size - min_text_size) + min_text_size;
+
+	ctx.font = '600 ' + text_size + 'em \'Inter\', sans-serif';
 	ctx.textAlign = 'center';
 	ctx.textBaseline = 'top';
 	ctx.fillStyle = 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';

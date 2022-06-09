@@ -52,3 +52,6 @@ body {
 	left: 0;
 	transform-origin: top left;
 }
+#ui.zoomed > canvas#map {
+	image-rendering: pixelated;
+}

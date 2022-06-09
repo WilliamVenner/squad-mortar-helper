@@ -26,7 +26,8 @@ pub fn rebuild_html() -> String {
 	}
 
 	if cfg!(not(build_assertions)) {
-		index.replace_range(index.find("<!--RELEASE-->").unwrap().."<!--RELEASE-->".len(), "<script type=\"text/javascript\">window.RELEASE = true;</script>");
+		let idx = index.find("<!--RELEASE-->").unwrap();
+		index.replace_range(idx..idx+"<!--RELEASE-->".len(), "<script type=\"text/javascript\">window.RELEASE = true;</script>");
 	}
 
 	index
