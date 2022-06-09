@@ -63,6 +63,8 @@ clipboard = "0"
 build-time = "0"
 bumpalo = { version = "3", features = ["collections"] }
 walkdir = "2"
+sysreq = "0"
+semver = "1"
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 msgbox = "0"

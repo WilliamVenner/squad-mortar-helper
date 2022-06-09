@@ -21,6 +21,8 @@ pub(super) struct UIState {
 	pub display: Display,
 	pub renderer: &'static mut Renderer,
 
+	pub update_check: update::UpdateCheckState,
+
 	pub(super) vision: FrameCell<parking_lot::MappedMutexGuard<'static, UIData>>,
 }
 impl UIState {
@@ -35,6 +37,7 @@ impl UIState {
 			web: Default::default(),
 			heightmaps: Default::default(),
 			map: Default::default(),
+			update_check: Default::default(),
 			logs,
 			fonts,
 
@@ -100,6 +103,7 @@ impl UIState {
 		logs::render_window(self, ui);
 		web::render_popup(self, ui);
 		about::render_star_pls(self, ui);
+		update::render_modal(self, ui);
 
 		window.end();
 	}

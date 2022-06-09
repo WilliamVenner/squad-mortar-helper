@@ -75,6 +75,7 @@ mod theme;
 mod web;
 mod window;
 mod state;
+mod update;
 
 #[path = "imgui.rs"]
 mod imgui_ex;
