@@ -1,7 +1,7 @@
 #![allow(clippy::missing_safety_doc)]
 
 pub use image::{buffer::ConvertBuffer, DynamicImage, EncodableLayout, GenericImage, GenericImageView, GrayImage, RgbImage};
-pub use parking_lot::{Mutex, RwLock};
+pub use parking_lot::{Mutex, RwLock, Condvar};
 pub use rayon::prelude::*;
 pub use atomic_refcell::{AtomicRefCell, AtomicRef, AtomicRefMut};
 

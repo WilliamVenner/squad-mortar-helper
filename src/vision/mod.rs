@@ -259,6 +259,10 @@ pub fn start() {
 			break;
 		}
 
+		while SETTINGS.paused() {
+			std::thread::park();
+		}
+
 		if let Some(frame) = ui::debug::FakeInputs::selected().map(|image| Frame { dpi: None, image }).or_else(capture::fresh_frame) {
 			let last_frame = Instant::now();
 

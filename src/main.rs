@@ -20,7 +20,7 @@ mod prelude {
 	pub(crate) use crate::{
 		ui::debug::{SYNCED_DEBUG_STATE, DebugBox},
 		capture,
-		settings::{self, SETTINGS},
+		settings::SETTINGS,
 		squadex, ui, vision,
 	};
 	pub(crate) use smh_vision_common::prelude::*;
@@ -69,7 +69,7 @@ fn main() {
 
 	let capture = capture::spawn();
 
-	ui::start(logger, move || {
+	ui::start(vision.thread().to_owned(), logger, move || {
 		for thread in [capture, vision].into_iter() {
 			if let Err(err) = thread.join() {
 				if let Some(err) = err.downcast_ref::<anyhow::Error>() {

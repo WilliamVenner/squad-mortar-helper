@@ -268,4 +268,6 @@ pub(super) fn render(state: &mut UIState, ui: &Ui) {
 		.for_each(|(marker, color)| {
 			markers::draw(state, ui, marker, color, DrawList::Background);
 		});
+
+	settings::render_paused_overlay(state, ui);
 }

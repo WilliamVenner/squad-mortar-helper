@@ -3001,9 +3001,9 @@ dependencies = [
 
 [[package]]
 name = "sysreq"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e57b11c98e297831f3e75a2f539f491309390fa58c55a4aa8c2bdf63294b146"
+checksum = "9582aed86b2dc05508e4b652c2b4154cb490058dc3e71f10efba96f08bf781a5"
 dependencies = [
  "lazy_static",
  "thiserror",

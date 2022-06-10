@@ -1,6 +1,9 @@
 use std::sync::atomic::*;
 use smh_util::{SpinCell, atomic_refcell::AtomicRef};
 
+// A special case as we don't want to save this
+static PAUSED: AtomicBool = AtomicBool::new(false);
+
 macro_rules! atomic_types {
 	{$($ty:ty => $inner:ty),*} => {
 		pub trait AtomicType {
@@ -68,14 +71,30 @@ macro_rules! settings {
 				})
 			}
 
+			#[inline]
+			pub fn paused(&self) -> bool {
+				PAUSED.load(Ordering::Relaxed)
+			}
+
+			#[inline]
+			pub fn set_paused(&self, paused: bool, vision_thread: &std::thread::Thread) {
+				PAUSED.store(paused, Ordering::Release);
+
+				if !paused {
+					vision_thread.unpark();
+				}
+			}
+
 			$(
 				$(#[$attr])?
+				#[inline]
 				pub fn $name(&self) -> <$ty as AtomicType>::AtomicType {
 					self.$name.load(Ordering::Relaxed)
 				}
 
 				smh_util::paste::paste! {
 					$(#[$attr])?
+					#[inline]
 					pub fn [< set_ $name >] (&self, val: <$ty as AtomicType>::AtomicType) {
 						self.$name.store(val, Ordering::Release);
 						self.save();
@@ -85,12 +104,14 @@ macro_rules! settings {
 
 			$(
 				$(#[$spin_attr])?
+				#[inline]
 				pub fn $spin_name(&self) -> AtomicRef<'_, $spin_ty> {
 					self.spinners.$spin_name.read()
 				}
 
 				smh_util::paste::paste! {
 					$(#[$spin_attr])?
+					#[inline]
 					pub fn [< set_ $spin_name >] (&self, val: $spin_ty) {
 						*self.spinners.$spin_name.write() = val;
 						self.save();
@@ -117,28 +138,5 @@ settings! {
 	spinners => {
 		squad_dir: Option<Box<str>> = None,
 		squad_pak_aes: Option<Box<str>> = None
-	}
-}
-
-pub fn menu_bar(ui: &imgui::Ui) {
-	if let Some(settings) = ui.begin_menu("Settings") {
-		#[cfg(all(feature = "gpu", any(windows, target_os = "linux"), target_arch = "x86_64"))] {
-			let hardware_acceleration = SETTINGS.hardware_acceleration();
-			if imgui::MenuItem::new("Hardware Acceleration (GPU)").selected(hardware_acceleration).build(ui) {
-				SETTINGS.set_hardware_acceleration(!hardware_acceleration);
-			}
-		}
-
-		let detect_markers = SETTINGS.detect_markers();
-		if imgui::MenuItem::new("Detect Markers").selected(detect_markers).build(ui) {
-			SETTINGS.set_detect_markers(!detect_markers);
-		}
-
-		let grayscale_map = SETTINGS.grayscale_map();
-		if imgui::MenuItem::new("Grayscale Map").selected(grayscale_map).build(ui) {
-			SETTINGS.set_grayscale_map(!grayscale_map);
-		}
-
-		settings.end();
 	}
 }

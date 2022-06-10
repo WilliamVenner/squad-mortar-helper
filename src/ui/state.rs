@@ -24,9 +24,10 @@ pub(super) struct UIState {
 	pub update_check: update::UpdateCheckState,
 
 	pub(super) vision: FrameCell<parking_lot::MappedMutexGuard<'static, UIData>>,
+	pub(super) vision_thread: std::thread::Thread
 }
 impl UIState {
-	pub(super) fn new(display: Display, renderer: &'static mut Renderer, fonts: Fonts, logs: logs::LogState) -> Self {
+	pub(super) fn new(display: Display, renderer: &'static mut Renderer, fonts: Fonts, logs: logs::LogState, vision_thread: std::thread::Thread) -> Self {
 		Self {
 			star_modal: false,
 
@@ -48,7 +49,9 @@ impl UIState {
 			vision: Default::default(),
 
 			display,
-			renderer
+			renderer,
+
+			vision_thread
 		}
 	}
 
@@ -87,7 +90,7 @@ impl UIState {
 		if let Some(menu) = ui.begin_menu_bar() {
 			heightmaps::menu_bar(self, ui);
 			web::menu_bar(self, ui);
-			settings::menu_bar(ui);
+			settings::menu_bar(self, ui);
 			debug::menu_bar(ui, self);
 			about::menu_bar(ui);
 

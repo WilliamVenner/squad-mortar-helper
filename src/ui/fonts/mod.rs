@@ -4,6 +4,7 @@ static INTER: &[u8] = include_bytes!("Inter-Regular.ttf");
 static INTER_BOLD: &[u8] = include_bytes!("Inter-Bold.ttf");
 
 pub struct Fonts {
+	pub paused: FontId,
 	pub marker_label: FontId,
 	pub ocr_label: FontId,
 	pub debug_small: FontId
@@ -80,7 +81,22 @@ pub fn add(imgui: &mut imgui::Context, hidpi_factor: f64) -> Fonts {
 		}
 	]);
 
+	let font_size = (26.0 * hidpi_factor) as f32;
+	let paused = imgui.fonts().add_font(&[
+		FontSource::TtfData {
+			data: INTER_BOLD,
+			size_pixels: font_size,
+			config: Some(FontConfig {
+				rasterizer_multiply: 1.5,
+				oversample_h: 4,
+				oversample_v: 4,
+				..FontConfig::default()
+			}),
+		}
+	]);
+
 	Fonts {
+		paused,
 		marker_label,
 		ocr_label,
 		debug_small

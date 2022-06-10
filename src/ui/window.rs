@@ -8,7 +8,7 @@ fn set_window_icon(window: &winit::window::Window) -> Result<(), AnyError> {
 	Ok(())
 }
 
-pub fn start<F: FnOnce() + 'static>(logs: logs::LogState, shutdown: F) -> ! {
+pub fn start<F: FnOnce() + 'static>(vision_thread: std::thread::Thread, logs: logs::LogState, shutdown: F) -> ! {
 	let mut shutdown = Some(shutdown);
 
 	let event_loop = EventLoop::<UIEvent>::with_user_event();
@@ -50,7 +50,7 @@ pub fn start<F: FnOnce() + 'static>(logs: logs::LogState, shutdown: F) -> ! {
 
 	let renderer = Box::leak(Box::new(Renderer::init(&mut imgui, &display).expect("Failed to initialize renderer")));
 
-	let mut state = UIState::new(display.clone(), renderer, fonts, logs);
+	let mut state = UIState::new(display.clone(), renderer, fonts, logs, vision_thread);
 
 	let mut ui_data_update_id = usize::MAX;
 	let mut redraw_amount: u8 = 1;
