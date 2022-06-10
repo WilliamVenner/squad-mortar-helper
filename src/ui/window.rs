@@ -50,7 +50,7 @@ pub fn start<F: FnOnce() + 'static>(vision_thread: std::thread::Thread, logs: lo
 
 	let renderer = Box::leak(Box::new(Renderer::init(&mut imgui, &display).expect("Failed to initialize renderer")));
 
-	let mut state = UIState::new(display.clone(), renderer, fonts, logs, vision_thread);
+	let mut state = UiState::new(display.clone(), renderer, fonts, logs, vision_thread);
 
 	let mut ui_data_update_id = usize::MAX;
 	let mut redraw_amount: u8 = 1;

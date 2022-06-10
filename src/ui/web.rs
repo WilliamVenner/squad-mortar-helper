@@ -13,7 +13,7 @@ pub struct WebState {
 	modal: Option<(bool, WebModal)>
 }
 
-pub(super) fn menu_bar(state: &mut UIState, ui: &Ui) {
+pub(super) fn menu_bar(state: &mut UiState, ui: &Ui) {
 	if let Some(web) = ui.begin_menu("Web") {
 		if let Some(server) = &state.web.server {
 			let num_clients = server.num_clients();
@@ -41,7 +41,7 @@ pub(super) fn menu_bar(state: &mut UIState, ui: &Ui) {
 	}
 }
 
-pub(super) fn render_popup(state: &mut UIState, ui: &Ui) {
+pub(super) fn render_popup(state: &mut UiState, ui: &Ui) {
 	if let Some((ref mut opened, ref mut result)) = state.web.modal {
 		if !*opened {
 			ui.open_popup(match result {
@@ -128,7 +128,7 @@ pub(super) fn render_popup(state: &mut UIState, ui: &Ui) {
 	}
 }
 
-pub(super) fn handle_interactions(state: &mut UIState) {
+pub(super) fn handle_interactions(state: &mut UiState) {
 	// needed to get around borrow checker...
 	// non-lexical lifetimes when???
 	if state.web.server.is_none() {

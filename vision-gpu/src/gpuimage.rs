@@ -1,6 +1,6 @@
 use super::*;
 
-pub trait GPUBuffer<T: DeviceCopy>: Sized + Deref<Target = Self::Slice> + DerefMut {
+pub trait GpuBuffer<T: DeviceCopy>: Sized + Deref<Target = Self::Slice> + DerefMut {
 	type Ptr: Sized;
 	type Slice: ?Sized;
 
@@ -19,7 +19,7 @@ pub trait GPUBuffer<T: DeviceCopy>: Sized + Deref<Target = Self::Slice> + DerefM
 	where
 		T: Clone + Copy;
 }
-impl<T: GPUImagePrimitive> GPUBuffer<T> for DeviceBuffer<T> {
+impl<T: GpuImagePrimitive> GpuBuffer<T> for DeviceBuffer<T> {
 	type Ptr = DevicePointer<T>;
 	type Slice = DeviceSlice<T>;
 
@@ -64,7 +64,7 @@ impl<T: GPUImagePrimitive> GPUBuffer<T> for DeviceBuffer<T> {
 		DeviceBuffer::from_slice_async(slice, stream)
 	}
 }
-impl<T: GPUImagePrimitive> GPUBuffer<T> for UnifiedBuffer<T> {
+impl<T: GpuImagePrimitive> GpuBuffer<T> for UnifiedBuffer<T> {
 	type Ptr = UnifiedPointer<T>;
 	type Slice = [T];
 
@@ -110,29 +110,29 @@ impl<T: GPUImagePrimitive> GPUBuffer<T> for UnifiedBuffer<T> {
 	}
 }
 
-pub trait GPUImagePrimitive: Send + Sync + DeviceCopy + image::Primitive + 'static {}
-impl<T: Send + Sync + DeviceCopy + image::Primitive + 'static> GPUImagePrimitive for T {}
+pub trait GpuImagePrimitive: Send + Sync + DeviceCopy + image::Primitive + 'static {}
+impl<T: Send + Sync + DeviceCopy + image::Primitive + 'static> GpuImagePrimitive for T {}
 
 /// The pinned variant provides fast copying from the GPU to the host
-pub struct PinnedGPUImage<T = u8, Buf = DeviceBuffer<T>, Pixel = image::Rgb<T>>
+pub struct PinnedGpuImage<T = u8, Buf = DeviceBuffer<T>, Pixel = image::Rgb<T>>
 where
-	T: GPUImagePrimitive,
-	Buf: GPUBuffer<T>,
+	T: GpuImagePrimitive,
+	Buf: GpuBuffer<T>,
 	Pixel: image::Pixel<Subpixel = T> + 'static,
 {
-	inner: GPUImage<T, Buf, Pixel>,
+	inner: GpuImage<T, Buf, Pixel>,
 	locked_buffer: LockedBuffer<T>
 }
-impl<T, Buf, Pixel> PinnedGPUImage<T, Buf, Pixel>
+impl<T, Buf, Pixel> PinnedGpuImage<T, Buf, Pixel>
 where
-	T: GPUImagePrimitive,
-	Buf: GPUBuffer<T>,
+	T: GpuImagePrimitive,
+	Buf: GpuBuffer<T>,
 	Pixel: image::Pixel<Subpixel = T> + 'static,
 {
 	#[inline]
 	pub unsafe fn uninitialized(w: u32, h: u32, channels: usize) -> Result<Self, CudaError> {
 		Ok(Self {
-			inner: GPUImage::uninitialized(w, h, channels)?,
+			inner: GpuImage::uninitialized(w, h, channels)?,
 			locked_buffer: {
 				let mut buffer = LockedBuffer::uninitialized(w as usize * h as usize * channels)?;
 				core::ptr::write_bytes(buffer.as_mut_ptr(), 0, buffer.len());
@@ -165,23 +165,23 @@ where
 		image::ImageBuffer::from_raw(self.inner.width, self.inner.height, &*self.locked_buffer).sus_unwrap()
 	}
 }
-impl<T, Buf, Pixel> core::ops::Deref for PinnedGPUImage<T, Buf, Pixel>
+impl<T, Buf, Pixel> core::ops::Deref for PinnedGpuImage<T, Buf, Pixel>
 where
-	T: GPUImagePrimitive,
-	Buf: GPUBuffer<T>,
+	T: GpuImagePrimitive,
+	Buf: GpuBuffer<T>,
 	Pixel: image::Pixel<Subpixel = T> + 'static,
 {
-	type Target = GPUImage<T, Buf, Pixel>;
+	type Target = GpuImage<T, Buf, Pixel>;
 
 	#[inline(always)]
 	fn deref(&self) -> &Self::Target {
 		&self.inner
 	}
 }
-impl<T, Buf, Pixel> core::ops::DerefMut for PinnedGPUImage<T, Buf, Pixel>
+impl<T, Buf, Pixel> core::ops::DerefMut for PinnedGpuImage<T, Buf, Pixel>
 where
-	T: GPUImagePrimitive,
-	Buf: GPUBuffer<T>,
+	T: GpuImagePrimitive,
+	Buf: GpuBuffer<T>,
 	Pixel: image::Pixel<Subpixel = T> + 'static,
 {
 	#[inline(always)]
@@ -191,10 +191,10 @@ where
 }
 
 #[repr(C)]
-pub struct GPUImage<T = u8, Buf = DeviceBuffer<T>, Pixel = image::Rgb<T>>
+pub struct GpuImage<T = u8, Buf = DeviceBuffer<T>, Pixel = image::Rgb<T>>
 where
-	T: GPUImagePrimitive,
-	Buf: GPUBuffer<T>,
+	T: GpuImagePrimitive,
+	Buf: GpuBuffer<T>,
 	Pixel: image::Pixel<Subpixel = T> + 'static,
 {
 	pub(crate) width: u32,
@@ -208,25 +208,25 @@ where
 	_pixel: PhantomData<Pixel>,
 }
 
-unsafe impl<T, Buf, Pixel> Send for GPUImage<T, Buf, Pixel>
+unsafe impl<T, Buf, Pixel> Send for GpuImage<T, Buf, Pixel>
 where
-	T: GPUImagePrimitive,
-	Buf: GPUBuffer<T>,
+	T: GpuImagePrimitive,
+	Buf: GpuBuffer<T>,
 	Pixel: image::Pixel<Subpixel = T> + 'static,
 {
 }
 
-unsafe impl<T, Buf, Pixel> Sync for GPUImage<T, Buf, Pixel>
+unsafe impl<T, Buf, Pixel> Sync for GpuImage<T, Buf, Pixel>
 where
-	T: GPUImagePrimitive,
-	Buf: GPUBuffer<T>,
+	T: GpuImagePrimitive,
+	Buf: GpuBuffer<T>,
 	Pixel: image::Pixel<Subpixel = T> + 'static,
 {
 }
 
-impl<T, Pixel> GPUImage<T, DeviceBuffer<T>, Pixel>
+impl<T, Pixel> GpuImage<T, DeviceBuffer<T>, Pixel>
 where
-	T: GPUImagePrimitive,
+	T: GpuImagePrimitive,
 	Pixel: image::Pixel<Subpixel = T> + 'static,
 {
 	#[inline(always)]
@@ -235,9 +235,9 @@ where
 	}
 }
 
-impl<T, Pixel> GPUImage<T, UnifiedBuffer<T>, Pixel>
+impl<T, Pixel> GpuImage<T, UnifiedBuffer<T>, Pixel>
 where
-	T: GPUImagePrimitive,
+	T: GpuImagePrimitive,
 	Pixel: image::Pixel<Subpixel = T> + 'static,
 {
 	#[inline(always)]
@@ -251,10 +251,10 @@ where
 	}
 }
 
-impl<T, Buf, Pixel> Drop for GPUImage<T, Buf, Pixel>
+impl<T, Buf, Pixel> Drop for GpuImage<T, Buf, Pixel>
 where
-	T: GPUImagePrimitive,
-	Buf: GPUBuffer<T>,
+	T: GpuImagePrimitive,
+	Buf: GpuBuffer<T>,
 	Pixel: image::Pixel<Subpixel = T> + 'static,
 {
 	#[inline]
@@ -264,10 +264,10 @@ where
 		self.data = core::ptr::null_mut();
 	}
 }
-impl<T, Buf, Pixel> GPUImage<T, Buf, Pixel>
+impl<T, Buf, Pixel> GpuImage<T, Buf, Pixel>
 where
-	T: GPUImagePrimitive,
-	Buf: GPUBuffer<T>,
+	T: GpuImagePrimitive,
+	Buf: GpuBuffer<T>,
 	Pixel: image::Pixel<Subpixel = T> + 'static,
 {
 	#[inline]
@@ -386,10 +386,10 @@ where
 	}
 }
 
-impl<T, Buf, Pixel> GPUImage<T, Buf, Pixel>
+impl<T, Buf, Pixel> GpuImage<T, Buf, Pixel>
 where
-	T: GPUImagePrimitive + Default + Clone + Copy,
-	Buf: GPUBuffer<T>,
+	T: GpuImagePrimitive + Default + Clone + Copy,
+	Buf: GpuBuffer<T>,
 	Pixel: image::Pixel<Subpixel = T> + 'static,
 	Buf::Slice: CopyDestination<[T]>,
 {
@@ -408,10 +408,10 @@ where
 		})
 	}
 }
-impl<T, Buf, Pixel> GPUImage<T, Buf, Pixel>
+impl<T, Buf, Pixel> GpuImage<T, Buf, Pixel>
 where
-	T: GPUImagePrimitive + Default + Clone + Copy,
-	Buf: GPUBuffer<T>,
+	T: GpuImagePrimitive + Default + Clone + Copy,
+	Buf: GpuBuffer<T>,
 	Pixel: image::Pixel<Subpixel = T> + 'static,
 {
 	pub fn from_raw(w: u32, h: u32, buf: Vec<T>) -> Result<Option<Self>, CudaError> {
@@ -429,12 +429,12 @@ where
 		}
 	}
 }
-impl<P, Buf> TryFrom<&image::ImageBuffer<P, Vec<u8>>> for GPUImage<u8, Buf>
+impl<P, Buf> TryFrom<&image::ImageBuffer<P, Vec<u8>>> for GpuImage<u8, Buf>
 where
 	P: image::Pixel<Subpixel = u8> + 'static,
 	P::Subpixel: 'static,
 	Vec<u8>: core::ops::Deref<Target = [P::Subpixel]>,
-	Buf: GPUBuffer<u8>,
+	Buf: GpuBuffer<u8>,
 {
 	type Error = CudaError;
 
@@ -449,25 +449,25 @@ where
 		})
 	}
 }
-impl<P, Buf> TryFrom<image::ImageBuffer<P, Vec<u8>>> for GPUImage<u8, Buf>
+impl<P, Buf> TryFrom<image::ImageBuffer<P, Vec<u8>>> for GpuImage<u8, Buf>
 where
 	P: image::Pixel<Subpixel = u8> + 'static,
 	P::Subpixel: 'static,
 	Vec<u8>: core::ops::Deref<Target = [P::Subpixel]>,
-	Buf: GPUBuffer<u8>,
+	Buf: GpuBuffer<u8>,
 {
 	type Error = CudaError;
 
 	fn try_from(image: image::ImageBuffer<P, Vec<u8>>) -> Result<Self, Self::Error> {
-		GPUImage::try_from(&image)
+		GpuImage::try_from(&image)
 	}
 }
-impl<'a, P, Buf> TryFrom<&image::ImageBuffer<P, &'a [u8]>> for GPUImage<u8, Buf>
+impl<'a, P, Buf> TryFrom<&image::ImageBuffer<P, &'a [u8]>> for GpuImage<u8, Buf>
 where
 	P: image::Pixel<Subpixel = u8> + 'static,
 	P::Subpixel: 'static,
 	&'a [u8]: core::ops::Deref<Target = [P::Subpixel]>,
-	Buf: GPUBuffer<u8>,
+	Buf: GpuBuffer<u8>,
 {
 	type Error = CudaError;
 
@@ -482,7 +482,7 @@ where
 		})
 	}
 }
-impl<'a, P> TryFrom<image::ImageBuffer<P, &'a [u8]>> for GPUImage<u8>
+impl<'a, P> TryFrom<image::ImageBuffer<P, &'a [u8]>> for GpuImage<u8>
 where
 	P: image::Pixel<Subpixel = u8> + 'static,
 	P::Subpixel: 'static,
@@ -491,43 +491,43 @@ where
 	type Error = CudaError;
 
 	fn try_from(image: image::ImageBuffer<P, &'a [u8]>) -> Result<Self, Self::Error> {
-		GPUImage::try_from(&image)
+		GpuImage::try_from(&image)
 	}
 }
-impl TryFrom<&GPUImage<u8>> for image::RgbImage {
+impl TryFrom<&GpuImage<u8>> for image::RgbImage {
 	type Error = CudaError;
 
-	fn try_from(image: &GPUImage<u8>) -> Result<Self, Self::Error> {
+	fn try_from(image: &GpuImage<u8>) -> Result<Self, Self::Error> {
 		let mut buffer = vec![0u8; image.width as usize * image.height as usize * 3];
 		image.copy_to(&mut buffer)?;
 		Self::from_raw(image.width, image.height, buffer).ok_or(CudaError::InvalidMemoryAllocation)
 	}
 }
-impl TryFrom<&GPUImage<u8, DeviceBuffer<u8>, image::Luma<u8>>> for image::GrayImage {
+impl TryFrom<&GpuImage<u8, DeviceBuffer<u8>, image::Luma<u8>>> for image::GrayImage {
 	type Error = CudaError;
 
-	fn try_from(image: &GPUImage<u8, DeviceBuffer<u8>, image::Luma<u8>>) -> Result<Self, Self::Error> {
+	fn try_from(image: &GpuImage<u8, DeviceBuffer<u8>, image::Luma<u8>>) -> Result<Self, Self::Error> {
 		let mut buffer = vec![0u8; image.width as usize * image.height as usize];
 		image.copy_to(&mut buffer)?;
 		Self::from_raw(image.width, image.height, buffer).ok_or(CudaError::InvalidMemoryAllocation)
 	}
 }
-impl TryFrom<GPUImage<u8>> for image::RgbImage {
+impl TryFrom<GpuImage<u8>> for image::RgbImage {
 	type Error = CudaError;
 
-	fn try_from(image: GPUImage<u8>) -> Result<Self, Self::Error> {
+	fn try_from(image: GpuImage<u8>) -> Result<Self, Self::Error> {
 		image::RgbImage::try_from(&image)
 	}
 }
-impl TryFrom<GPUImage<u8, DeviceBuffer<u8>, image::Luma<u8>>> for image::GrayImage {
+impl TryFrom<GpuImage<u8, DeviceBuffer<u8>, image::Luma<u8>>> for image::GrayImage {
 	type Error = CudaError;
 
-	fn try_from(image: GPUImage<u8, DeviceBuffer<u8>, image::Luma<u8>>) -> Result<Self, Self::Error> {
+	fn try_from(image: GpuImage<u8, DeviceBuffer<u8>, image::Luma<u8>>) -> Result<Self, Self::Error> {
 		image::GrayImage::try_from(&image)
 	}
 }
 
-impl image::GenericImageView for GPUImage<u8, UnifiedBuffer<u8>, image::Luma<u8>> {
+impl image::GenericImageView for GpuImage<u8, UnifiedBuffer<u8>, image::Luma<u8>> {
 	type Pixel = image::Luma<u8>;
 	type InnerImageView = Self;
 
@@ -560,7 +560,7 @@ impl image::GenericImageView for GPUImage<u8, UnifiedBuffer<u8>, image::Luma<u8>
 		self
 	}
 }
-impl image::GenericImage for GPUImage<u8, UnifiedBuffer<u8>, image::Luma<u8>> {
+impl image::GenericImage for GpuImage<u8, UnifiedBuffer<u8>, image::Luma<u8>> {
 	type InnerImage = Self;
 
 	#[inline(always)]
@@ -599,7 +599,7 @@ impl image::GenericImage for GPUImage<u8, UnifiedBuffer<u8>, image::Luma<u8>> {
 	}
 }
 
-impl image::GenericImageView for GPUImage<u8, UnifiedBuffer<u8>, image::Rgb<u8>> {
+impl image::GenericImageView for GpuImage<u8, UnifiedBuffer<u8>, image::Rgb<u8>> {
 	type Pixel = image::Rgb<u8>;
 	type InnerImageView = Self;
 
@@ -639,7 +639,7 @@ impl image::GenericImageView for GPUImage<u8, UnifiedBuffer<u8>, image::Rgb<u8>>
 		self
 	}
 }
-impl image::GenericImage for GPUImage<u8, UnifiedBuffer<u8>, image::Rgb<u8>> {
+impl image::GenericImage for GpuImage<u8, UnifiedBuffer<u8>, image::Rgb<u8>> {
 	type InnerImage = Self;
 
 	#[inline(always)]

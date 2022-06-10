@@ -16,7 +16,7 @@ pub(super) fn menu_bar(ui: &Ui) {
 	}
 }
 
-pub(super) fn render_star_pls(state: &mut UIState, ui: &Ui) {
+pub(super) fn render_star_pls(state: &mut UiState, ui: &Ui) {
 	if !state.star_modal {
 		state.star_modal = true;
 

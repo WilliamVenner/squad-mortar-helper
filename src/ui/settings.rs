@@ -1,6 +1,6 @@
 use super::*;
 
-pub(super) fn menu_bar(state: &UIState, ui: &Ui) {
+pub(super) fn menu_bar(state: &UiState, ui: &Ui) {
 	let paused = SETTINGS.paused();
 	let mut toggle_pause = ui.is_key_pressed(imgui::Key::Space);
 
@@ -38,7 +38,7 @@ pub(super) fn menu_bar(state: &UIState, ui: &Ui) {
 	}
 }
 
-pub(super) fn render_paused_overlay(state: &UIState, ui: &Ui) {
+pub(super) fn render_paused_overlay(state: &UiState, ui: &Ui) {
 	if !SETTINGS.paused() {
 		return;
 	};

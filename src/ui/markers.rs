@@ -20,7 +20,7 @@ fn draw_centered_info_text(ui: &Ui, text: &str, x: f32, mut y: f32, color: [f32;
 	}
 }
 
-pub(super) fn draw(state: &UIState, ui: &Ui, marker: &Marker, color: [f32; 3], draw_list: DrawList) {
+pub(super) fn draw(state: &UiState, ui: &Ui, marker: &Marker, color: [f32; 3], draw_list: DrawList) {
 	use std::fmt::Write;
 
 	let dl = draw_list.get(ui);

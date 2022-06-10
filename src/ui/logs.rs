@@ -55,13 +55,13 @@ impl LogState {
 	}
 }
 
-struct SMHLoggerFileInner {
+struct SmhLoggerFileInner {
 	file: File,
 	last_log: Option<Log>,
 }
-struct SMHLoggerFile(Mutex<SMHLoggerFileInner>);
-impl SMHLoggerFile {
-	fn new() -> Result<Self, SMHLogger> {
+struct SmhLoggerFile(Mutex<SmhLoggerFileInner>);
+impl SmhLoggerFile {
+	fn new() -> Result<Self, SmhLogger> {
 		match OpenOptions::new()
 			.create(true)
 			.write(true)
@@ -84,13 +84,13 @@ impl SMHLoggerFile {
 
 				file.flush().ok();
 
-				Ok(SMHLoggerFile(Mutex::new(SMHLoggerFileInner { file, last_log: None })))
+				Ok(SmhLoggerFile(Mutex::new(SmhLoggerFileInner { file, last_log: None })))
 			}
-			Err(_) => Err(SMHLogger),
+			Err(_) => Err(SmhLogger),
 		}
 	}
 }
-impl log::Log for SMHLoggerFile {
+impl log::Log for SmhLoggerFile {
 	#[inline]
 	fn enabled(&self, metadata: &log::Metadata) -> bool {
 		metadata.level() <= log::Level::Info
@@ -143,8 +143,8 @@ impl log::Log for SMHLoggerFile {
 	fn flush(&self) {}
 }
 
-struct SMHLogger;
-impl log::Log for SMHLogger {
+struct SmhLogger;
+impl log::Log for SmhLogger {
 	#[inline]
 	fn enabled(&self, metadata: &log::Metadata) -> bool {
 		metadata.level() <= log::Level::Info
@@ -173,19 +173,19 @@ pub fn init() -> LogState {
 	log::set_max_level(log::LevelFilter::Info);
 
 	let logger: Box<dyn log::Log> = if let Some("--dumplogs") = std::env::args().nth(1).as_deref() {
-		match SMHLoggerFile::new().map(Box::new).map_err(Box::new) {
+		match SmhLoggerFile::new().map(Box::new).map_err(Box::new) {
 			Ok(logger) => logger,
 			Err(logger) => logger,
 		}
 	} else {
-		Box::new(SMHLogger)
+		Box::new(SmhLogger)
 	};
 	log::set_logger(Box::leak(logger)).expect("Failed to initialize logger");
 
 	LogState::new()
 }
 
-pub(super) fn render_window(state: &mut UIState, ui: &Ui) {
+pub(super) fn render_window(state: &mut UiState, ui: &Ui) {
 	state.logs.digest();
 
 	if !state.logs.window_open {

@@ -154,7 +154,7 @@ pub mod transmuters {
 	#![allow(unused)]
 
 	#[repr(C)]
-	pub struct GPUImage<T, Buf = (), Pixel = ()> {
+	pub struct GpuImage<T, Buf = (), Pixel = ()> {
 		width: u32,
 		height: u32,
 		data: *mut T,
@@ -163,12 +163,12 @@ pub mod transmuters {
 		_buf: core::marker::PhantomData<Buf>,
 		_pixel: core::marker::PhantomData<Pixel>
 	}
-	impl<T, Buf, Pixel> Drop for GPUImage<T, Buf, Pixel> {
+	impl<T, Buf, Pixel> Drop for GpuImage<T, Buf, Pixel> {
 		#[inline]
 		fn drop(&mut self) {
 			panic!("potential memory leak! I should be being dropped by the dylib, not the main application");
 		}
 	}
-	unsafe impl<T, Buf, Pixel> Send for GPUImage<T, Buf, Pixel> {}
-	unsafe impl<T, Buf, Pixel> Sync for GPUImage<T, Buf, Pixel> {}
+	unsafe impl<T, Buf, Pixel> Send for GpuImage<T, Buf, Pixel> {}
+	unsafe impl<T, Buf, Pixel> Sync for GpuImage<T, Buf, Pixel> {}
 }

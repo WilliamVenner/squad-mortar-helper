@@ -83,7 +83,7 @@ impl Default for UpdateCheckState {
 	}
 }
 
-pub(super) fn render_modal(state: &mut UIState, ui: &Ui) {
+pub(super) fn render_modal(state: &mut UiState, ui: &Ui) {
 	let latest_version = match &mut state.update_check {
 		UpdateCheckState::Done {
 			latest_version,

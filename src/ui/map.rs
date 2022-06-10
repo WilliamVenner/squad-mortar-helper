@@ -129,7 +129,7 @@ const MAX_ZOOM: f32 = 4.0;
 const ZOOM_LEVELS: u8 = 10;
 const PAN_ACCELERATION: f32 = 2.0;
 
-pub(super) fn zoom_ctl(state: &mut UIState, ui: &Ui) {
+pub(super) fn zoom_ctl(state: &mut UiState, ui: &Ui) {
 	if ui.is_any_item_focused() || ui.is_any_item_hovered() {
 		return;
 	}
@@ -177,7 +177,7 @@ pub(super) fn zoom_ctl(state: &mut UIState, ui: &Ui) {
 	}
 }
 
-fn create_map_texture(state: &mut UIState, map: &image::RgbaImage) -> Result<TextureId, glium::texture::TextureCreationError> {
+fn create_map_texture(state: &mut UiState, map: &image::RgbaImage) -> Result<TextureId, glium::texture::TextureCreationError> {
 	let texture = Texture {
 		texture: Rc::new(Texture2d::with_format(
 			state.display.get_context(),
@@ -206,7 +206,7 @@ fn create_map_texture(state: &mut UIState, map: &image::RgbaImage) -> Result<Tex
 	})
 }
 
-pub(super) fn render(state: &mut UIState, ui: &Ui) {
+pub(super) fn render(state: &mut UiState, ui: &Ui) {
 	let map = state.vision.debug.debug_view.as_ref().unwrap_or(&state.vision.map).clone();
 	let (map_w, map_h) = (map.width() as f32, map.height() as f32);
 

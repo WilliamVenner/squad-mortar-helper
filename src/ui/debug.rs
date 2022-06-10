@@ -101,7 +101,7 @@ pub struct DebugBox {
 	pub debug_view: Option<Arc<image::RgbaImage>>,
 }
 
-pub(super) fn menu_bar(ui: &Ui, state: &mut UIState) {
+pub(super) fn menu_bar(ui: &Ui, state: &mut UiState) {
 	let debug = match ui.begin_menu("Debug") {
 		Some(debug) => debug,
 		None => return,
@@ -182,7 +182,7 @@ pub(super) fn menu_bar(ui: &Ui, state: &mut UIState) {
 	debug.end();
 }
 
-fn draw_fps(state: &mut UIState, ui: &Ui, entire_frame: Duration) {
+fn draw_fps(state: &mut UiState, ui: &Ui, entire_frame: Duration) {
 	use std::fmt::Write;
 
 	let fps = imgui::Window::new("FPS")
@@ -276,7 +276,7 @@ fn draw_fps(state: &mut UIState, ui: &Ui, entire_frame: Duration) {
 	fps.end();
 }
 
-pub(super) fn render(state: &mut UIState, ui: &Ui) {
+pub(super) fn render(state: &mut UiState, ui: &Ui) {
 	if state.debug.fps {
 		if let Some(entire_frame) = state.vision.debug.timeshares.entire_frame {
 			draw_fps(state, ui, entire_frame);
@@ -347,7 +347,7 @@ pub(super) fn render(state: &mut UIState, ui: &Ui) {
 	font.end();
 }
 
-pub(super) fn render_vision_debugger(state: &mut UIState, ui: &Ui) {
+pub(super) fn render_vision_debugger(state: &mut UiState, ui: &Ui) {
 	use image::Pixel;
 
 	if !state.debug.vision_debugger {

@@ -2,7 +2,7 @@ use super::*;
 use atomic_refcell::AtomicRef;
 use smh_heightmap_ripper::Heightmap;
 
-fn set_fit_to_minimap(state: &mut UIState, value: bool) {
+fn set_fit_to_minimap(state: &mut UiState, value: bool) {
 	state.heightmaps.fit_to_minimap = value;
 
 	if let Some(ref web) = state.web.server {
@@ -241,7 +241,7 @@ fn create_heightmap_texture(
 	})
 }
 
-pub struct HeightmapsUIState {
+pub struct HeightmapsUiState {
 	opened_heightmaps_folder: bool,
 
 	heightmap_info_fake_input: String,
@@ -271,7 +271,7 @@ pub struct HeightmapsUIState {
 	window_open: bool,
 	selected_layer: i32,
 }
-impl HeightmapsUIState {
+impl HeightmapsUiState {
 	#[inline]
 	pub fn draw_heightmap(&self) -> bool {
 		self.draw_heightmap || self.fit_modal || self.fit_to_minimap_hover
@@ -282,7 +282,7 @@ impl HeightmapsUIState {
 		self.fit_modal_hover || ((self.fit_to_minimap ^ self.fit_to_minimap_hover) && !self.fit_modal)
 	}
 }
-impl Default for HeightmapsUIState {
+impl Default for HeightmapsUiState {
 	fn default() -> Self {
 		// we can get away with resolving the paks dir here
 		let default_squad_dir = find_squad_dir();
@@ -321,7 +321,7 @@ impl Default for HeightmapsUIState {
 	}
 }
 
-pub(super) fn menu_bar(state: &mut UIState, ui: &Ui) {
+pub(super) fn menu_bar(state: &mut UiState, ui: &Ui) {
 	let menu = match ui.begin_menu("Heightmaps") {
 		Some(it) => it,
 		_ => {
@@ -369,7 +369,7 @@ pub(super) fn menu_bar(state: &mut UIState, ui: &Ui) {
 	menu.end();
 }
 
-pub(super) fn render_fit_modal(state: &mut UIState, ui: &Ui) {
+pub(super) fn render_fit_modal(state: &mut UiState, ui: &Ui) {
 	if !state.heightmaps.fit_modal {
 		return;
 	}
@@ -410,7 +410,7 @@ pub(super) fn render_fit_modal(state: &mut UIState, ui: &Ui) {
 	bg.pop();
 }
 
-pub(super) fn render_window(state: &mut UIState, ui: &Ui) {
+pub(super) fn render_window(state: &mut UiState, ui: &Ui) {
 	if !state.heightmaps.window_open {
 		// Free memory when the window is closed
 		state.heightmaps.heightmap_texture = None;
@@ -791,7 +791,7 @@ pub(super) fn render_window(state: &mut UIState, ui: &Ui) {
 	window.end();
 }
 
-pub(super) fn render_overlay(state: &mut UIState, ui: &Ui) {
+pub(super) fn render_overlay(state: &mut UiState, ui: &Ui) {
 	if state.heightmaps.draw_heightmap() {
 		if let Some((texture_id, offset, [width, height])) = state.heightmaps.selected_heightmap {
 			if let Some(minimap_viewport) = state.vision.minimap_bounds {

@@ -57,7 +57,7 @@ pub use gpu_support::*;
 mod gpu_support {
 	use super::*;
 
-	pub type DylibWrapper = VisionDylibWrapper<dylib::transmuters::GPUImage<u8>, AnyError>;
+	pub type DylibWrapper = VisionDylibWrapper<dylib::transmuters::GpuImage<u8>, AnyError>;
 
 	unsafe fn load_gpu() -> Result<DylibWrapper, AnyError> {
 		DylibWrapper::wrap("smh_vision_gpu")

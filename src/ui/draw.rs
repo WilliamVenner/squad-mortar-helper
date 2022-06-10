@@ -11,7 +11,7 @@ pub struct DrawState {
 	drag_debounce: bool
 }
 
-pub(super) fn delete_marker(state: &mut UIState, i: usize) {
+pub(super) fn delete_marker(state: &mut UiState, i: usize) {
 	if i >= state.draw.custom_markers.len() {
 		return;
 	}
@@ -23,7 +23,7 @@ pub(super) fn delete_marker(state: &mut UIState, i: usize) {
 	}
 }
 
-pub(super) fn add_marker(state: &mut UIState, p0: [f32; 2], p1: [f32; 2]) {
+pub(super) fn add_marker(state: &mut UiState, p0: [f32; 2], p1: [f32; 2]) {
 	state.draw.custom_markers.push([p0, p1]);
 
 	if let Some(web) = &state.web.server {
@@ -54,7 +54,7 @@ fn is_point_on_line(a: [f32; 2], b: [f32; 2], c: [f32; 2], tolerance: f32) -> bo
 	true
 }
 
-fn mouse_ctl(state: &mut UIState, ui: &Ui) {
+fn mouse_ctl(state: &mut UiState, ui: &Ui) {
 	let can_drag = ui.is_window_focused() && !ui.is_any_item_hovered() && !ui.is_any_item_focused();
 	if !can_drag || ((state.draw.drag_start.is_some() || state.draw.measure_start.is_some()) && ui.is_key_down(imgui::Key::Escape)) {
 		state.draw.drag_start = None;
@@ -107,7 +107,7 @@ fn mouse_ctl(state: &mut UIState, ui: &Ui) {
 	}
 }
 
-fn delete_ctl(state: &mut UIState, ui: &Ui, p0: [f32; 2], p1: [f32; 2], i: usize) -> bool {
+fn delete_ctl(state: &mut UiState, ui: &Ui, p0: [f32; 2], p1: [f32; 2], i: usize) -> bool {
 	if ui.is_any_item_focused() || ui.is_any_item_hovered() {
 		return true;
 	}
@@ -132,7 +132,7 @@ fn delete_ctl(state: &mut UIState, ui: &Ui, p0: [f32; 2], p1: [f32; 2], i: usize
 	true
 }
 
-pub(super) fn render(state: &mut UIState, ui: &Ui) {
+pub(super) fn render(state: &mut UiState, ui: &Ui) {
 	let mut i = 0;
 	while i < state.draw.custom_markers.len() {
 		let [p0, p1] = state.draw.custom_markers[i];

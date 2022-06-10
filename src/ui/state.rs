@@ -1,6 +1,6 @@
 use super::*;
 
-pub(super) struct UIState {
+pub(super) struct UiState {
 	pub star_modal: bool,
 
 	pub ui_fmt_alloc: bumpalo::Bump,
@@ -12,7 +12,7 @@ pub(super) struct UIState {
 	pub draw: draw::DrawState,
 	pub map: map::MapState,
 	pub web: web::WebState,
-	pub heightmaps: heightmaps::HeightmapsUIState,
+	pub heightmaps: heightmaps::HeightmapsUiState,
 
 	pub new_data: bool,
 	pub frame: u64,
@@ -23,10 +23,10 @@ pub(super) struct UIState {
 
 	pub update_check: update::UpdateCheckState,
 
-	pub(super) vision: FrameCell<parking_lot::MappedMutexGuard<'static, UIData>>,
+	pub(super) vision: FrameCell<parking_lot::MappedMutexGuard<'static, UiData>>,
 	pub(super) vision_thread: std::thread::Thread
 }
-impl UIState {
+impl UiState {
 	pub(super) fn new(display: Display, renderer: &'static mut Renderer, fonts: Fonts, logs: logs::LogState, vision_thread: std::thread::Thread) -> Self {
 		Self {
 			star_modal: false,

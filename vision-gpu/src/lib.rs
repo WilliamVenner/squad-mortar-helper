@@ -8,7 +8,7 @@ mod cuda;
 mod gpuimage;
 // mod gpumarkers;
 
-smh_vision_common::export_dylib_wrapper!(smh_vision_gpu => cuda::CUDAInstance);
+smh_vision_common::export_dylib_wrapper!(smh_vision_gpu => cuda::CudaInstance);
 
 #[allow(unused)]
 use smh_vision_common::open_image;
@@ -30,33 +30,33 @@ use cuda::*;
 use gpuimage::*;
 // use gpumarkers::*;
 
-struct GPUMemory {
-	frame: GPUImage<u8, DeviceBuffer<u8>, image::Bgra<u8>>,
+struct GpuMemory {
+	frame: GpuImage<u8, DeviceBuffer<u8>, image::Bgra<u8>>,
 
 	red_pixels: DeviceBox<u32>,
-	ui_map: GPUImage<u8, DeviceBuffer<u8>, image::Rgba<u8>>,
-	cropped_map: GPUImage<u8, DeviceBuffer<u8>, image::Rgb<u8>>,
-	cropped_brq: GPUImage<u8, DeviceBuffer<u8>, image::Rgb<u8>>,
+	ui_map: GpuImage<u8, DeviceBuffer<u8>, image::Rgba<u8>>,
+	cropped_map: GpuImage<u8, DeviceBuffer<u8>, image::Rgb<u8>>,
+	cropped_brq: GpuImage<u8, DeviceBuffer<u8>, image::Rgb<u8>>,
 
-	ocr_out: SusRefCell<PinnedGPUImage<u8, DeviceBuffer<u8>, image::Luma<u8>>>,
+	ocr_out: SusRefCell<PinnedGpuImage<u8, DeviceBuffer<u8>, image::Luma<u8>>>,
 
-	scales_preprocessed: GPUImage<u8, DeviceBuffer<u8>, image::Luma<u8>>,
+	scales_preprocessed: GpuImage<u8, DeviceBuffer<u8>, image::Luma<u8>>,
 	scales_preprocessed_host: SusRefCell<image::GrayImage>,
 
 	// map_marker_template_matches_sad: SusRefCell<Vec<GPUTemplateMatch>>,
 	// marked_map_marker_pixels: DeviceBuffer<GPUTemplateMatch>,
 	// marked_map_marker_pixels_count: DeviceBox<u32>,
 
-	lsd_image: SusRefCell<PinnedGPUImage<u8, DeviceBuffer<u8>, image::Luma<u8>>>,
+	lsd_image: SusRefCell<PinnedGpuImage<u8, DeviceBuffer<u8>, image::Luma<u8>>>,
 	lsd_image_dilate: DeviceBuffer<u8>,
 	lsd_kernel_dilate: DeviceBuffer<u8>,
-	longest_lines: DeviceBuffer<GPULine<f32>>,
+	longest_lines: DeviceBuffer<GpuLine<f32>>,
 
 	crop_to_map_streams: (Stream, Stream),
 	markers_stream: Stream,
 	scales_stream: Stream,
 }
-impl GPUMemory {
+impl GpuMemory {
 	fn new(dimensions: (u32, u32)) -> Result<Self, AnyError> {
 		unsafe {
 			// let map_icon_size: u32 = 22;
@@ -78,23 +78,23 @@ impl GPUMemory {
 				markers_stream: stream!()?,
 				scales_stream: stream!()?,
 
-				frame: GPUImage::uninitialized(dimensions.0, dimensions.1, 4)?,
+				frame: GpuImage::uninitialized(dimensions.0, dimensions.1, 4)?,
 
 				red_pixels: DeviceBox::uninitialized()?,
-				ui_map: GPUImage::uninitialized(w, h, 4)?,
-				cropped_map: GPUImage::uninitialized(w, h, 3)?,
-				cropped_brq: GPUImage::uninitialized(brq_w, brq_h, 3)?,
+				ui_map: GpuImage::uninitialized(w, h, 4)?,
+				cropped_map: GpuImage::uninitialized(w, h, 3)?,
+				cropped_brq: GpuImage::uninitialized(brq_w, brq_h, 3)?,
 
-				ocr_out: PinnedGPUImage::uninitialized(brq_w, brq_h, 1)?.into(),
+				ocr_out: PinnedGpuImage::uninitialized(brq_w, brq_h, 1)?.into(),
 
-				scales_preprocessed: GPUImage::uninitialized(brq_w, brq_h, 1)?,
+				scales_preprocessed: GpuImage::uninitialized(brq_w, brq_h, 1)?,
 				scales_preprocessed_host: SusRefCell::new(image::GrayImage::new(brq_w, brq_h)),
 
 				// map_marker_template_matches_sad: SusRefCell::new(vec![GPUTemplateMatch::zeroed(); (w - map_icon_size) as usize * (h - map_icon_size) as usize]),
 				// marked_map_marker_pixels: DeviceBuffer::uninitialized(w as usize * h as usize)?,
 				// marked_map_marker_pixels_count: DeviceBox::uninitialized()?,
 
-				lsd_image: PinnedGPUImage::uninitialized(w, h, 1)?.into(),
+				lsd_image: PinnedGpuImage::uninitialized(w, h, 1)?.into(),
 				lsd_image_dilate: DeviceBuffer::uninitialized(w as usize * h as usize)?,
 				lsd_kernel_dilate: DeviceBuffer::from_slice(&[255; 2 * 2])?,
 				longest_lines: DeviceBuffer::uninitialized(8)?,
@@ -104,21 +104,21 @@ impl GPUMemory {
 }
 
 #[derive(Default)]
-struct GPUVisionState {
+struct GpuVisionState {
 	cpu_frame: Arc<VisionFrame>,
 
 	dimensions: (u32, u32),
-	memory: Option<GPUMemory>,
+	memory: Option<GpuMemory>,
 
 	// map_marker_size: u32,
 	// map_markers: Option<GPUMapMarkers>
 }
-impl GPUVisionState {
+impl GpuVisionState {
 	#[inline]
-	fn update(&mut self, dimensions: (u32, u32)) -> Result<&mut GPUMemory, AnyError> {
+	fn update(&mut self, dimensions: (u32, u32)) -> Result<&mut GpuMemory, AnyError> {
 		if self.memory.is_none() || self.dimensions != dimensions {
 			self.memory = None;
-			self.memory = Some(GPUMemory::new(dimensions)?);
+			self.memory = Some(GpuMemory::new(dimensions)?);
 			self.dimensions = dimensions;
 		}
 		Ok(unsafe { self.memory.as_mut().unwrap_unchecked() })
@@ -143,12 +143,12 @@ macro_rules! memory {
 	};
 }
 
-impl Vision for CUDAInstance {
-	type LSDImage = GPUImage<u8, DeviceBuffer<u8>, image::Luma<u8>>;
+impl Vision for CudaInstance {
+	type LSDImage = GpuImage<u8, DeviceBuffer<u8>, image::Luma<u8>>;
 	type Error = AnyError;
 
 	fn init() -> Result<Self, AnyError> {
-		CUDAInstance::init()
+		CudaInstance::init()
 	}
 
 	fn thread_ctx(&self) -> Result<(), smh_vision_common::prelude::AnyError> {
@@ -173,9 +173,9 @@ impl Vision for CUDAInstance {
 
 			// upload frame to GPU
 			if frame.inner().bounds() != frame.bounds() {
-				memory.frame = GPUImage::async_try_from(&frame, stream)?;
+				memory.frame = GpuImage::async_try_from(&frame, stream)?;
 			} else {
-				memory.frame = GPUImage::async_try_from(frame.inner(), stream)?;
+				memory.frame = GpuImage::async_try_from(frame.inner(), stream)?;
 			}
 
 			// reset state
@@ -497,14 +497,14 @@ impl Vision for CUDAInstance {
 					image.as_device_ptr(),
 					image.width, image.height,
 
-					GPUPoint { x: pt.x, y: pt.y },
+					GpuPoint { x: pt.x, y: pt.y },
 					max_gap,
 
 					longest_lines.as_device_ptr()
 				)
 			)?;
 
-			let mut block_longest_lines = [GPULine::zeroed(); 8];
+			let mut block_longest_lines = [GpuLine::zeroed(); 8];
 			longest_lines.async_copy_to(&mut block_longest_lines, stream)?;
 
 			stream.synchronize()?;
@@ -512,7 +512,7 @@ impl Vision for CUDAInstance {
 			let (longest_line, longest_line_length) =
 				block_longest_lines
 					.into_iter()
-					.fold((GPULine::zeroed(), 0.0), |(longest_line, longest_line_length), line| {
+					.fold((GpuLine::zeroed(), 0.0), |(longest_line, longest_line_length), line| {
 						let line_length = (line.p0.x - line.p1.x).powi(2) + (line.p0.y - line.p1.y).powi(2);
 						if line_length > longest_line_length {
 							(line, line_length)
@@ -562,7 +562,7 @@ impl Vision for CUDAInstance {
 #[test]
 fn test_gpu_computer_vision() {
 	println!("initializing CUDA...");
-	let mut cuda = CUDAInstance::init().unwrap();
+	let mut cuda = CudaInstance::init().unwrap();
 
 	let mut i = 0;
 	let (cropped_map, lines) = loop {

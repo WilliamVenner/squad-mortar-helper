@@ -12,23 +12,23 @@ thread_local! {
 	pub(super) static THREAD_LOCAL_CUDA_CTX: RefCell<ThreadLocalCudaCtx> = RefCell::new(ThreadLocalCudaCtx::None);
 }
 
-pub struct CUDAInstance {
-	pub(super) state: super::GPUVisionState,
+pub struct CudaInstance {
+	pub(super) state: super::GpuVisionState,
 
 	module: Module,
 
 	// context must be dropped last!
 	pub(super) context: Context,
 }
-unsafe impl Send for CUDAInstance {}
-unsafe impl Sync for CUDAInstance {}
-impl CUDAInstance {
+unsafe impl Send for CudaInstance {}
+unsafe impl Sync for CudaInstance {}
+impl CudaInstance {
 	#[inline(always)]
-	pub(super) fn memory(&self) -> &super::GPUMemory {
+	pub(super) fn memory(&self) -> &super::GpuMemory {
 		self.state.memory.as_ref().sus_expect("GPU memory is not initialized")
 	}
 
-	pub fn init() -> Result<CUDAInstance, AnyError> {
+	pub fn init() -> Result<CudaInstance, AnyError> {
 		cust::init(CudaFlags::empty())?;
 
 		let device = Device::get_device(0)?;
@@ -85,14 +85,14 @@ impl CUDAInstance {
 			}
 		};
 
-		Ok(CUDAInstance {
-			state: GPUVisionState::default(),
+		Ok(CudaInstance {
+			state: GpuVisionState::default(),
 			context,
 			module
 		})
 	}
 }
-impl core::ops::Deref for CUDAInstance {
+impl core::ops::Deref for CudaInstance {
 	type Target = Module;
 
 	#[inline]
@@ -167,14 +167,14 @@ pub struct CudaUInt4 {
 
 #[derive(Zeroable, Clone, Copy, Debug, Default, PartialEq, Eq, DeviceCopy)]
 #[repr(C)]
-pub struct GPUPoint<T: Zeroable> {
+pub struct GpuPoint<T: Zeroable> {
 	pub x: T,
 	pub y: T
 }
 
 #[derive(Zeroable, Clone, Copy, Debug, Default, PartialEq, Eq, DeviceCopy)]
 #[repr(C)]
-pub struct GPULine<T: Zeroable> {
-	pub p0: GPUPoint<T>,
-	pub p1: GPUPoint<T>
+pub struct GpuLine<T: Zeroable> {
+	pub p0: GpuPoint<T>,
+	pub p1: GpuPoint<T>
 }

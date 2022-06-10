@@ -85,15 +85,15 @@ use fonts::Fonts;
 use imgui_ex::ImguiEx;
 use map::MapViewport;
 use rotate::ImRotate;
-use state::UIState;
+use state::UiState;
 pub use window::start;
 
 pub static DPI_ESTIMATE: AtomicU32 = AtomicU32::new(0);
 
 magic_statics_mod! {
-	static ref UI_DATA: parking_lot::Mutex<(usize, UIData)> = Default::default();
+	static ref UI_DATA: parking_lot::Mutex<(usize, UiData)> = Default::default();
 }
-pub fn update<F: FnOnce(&mut UIData)>(f: F) {
+pub fn update<F: FnOnce(&mut UiData)>(f: F) {
 	let mut ui_data = UI_DATA.lock();
 
 	ui_data.0 = ui_data.0.wrapping_add(1);
@@ -141,7 +141,7 @@ impl Marker {
 }
 
 #[derive(Default, Debug)]
-pub struct UIData {
+pub struct UiData {
 	pub sleeping: bool,
 	pub markers: Box<[Marker]>,
 	pub map: Arc<image::RgbaImage>,
