@@ -320,7 +320,7 @@ async fn server(
 	log::info!("HTTP server listening on {}", http.local_addr()?);
 
 	let http_addr = http.local_addr()?;
-	let ws_port = ws.local_addr()?.port().to_string();
+	let http_response = http::build_response(ws.local_addr()?.port());
 
 	let num_clients = Arc::new(());
 
@@ -404,9 +404,9 @@ async fn server(
 				Err(err) => log::warn!("Error accepting a new HTTP connection: {err}"),
 
 				Ok((stream, _)) => {
-					let ws_port = ws_port.clone();
+					let http_response = http_response.clone();
 					tokio::spawn(async move {
-						if let Err(err) = http::accept_http_connection(stream, &ws_port).await {
+						if let Err(err) = http::accept_http_connection(stream, &*http_response).await {
 							log::warn!("HTTP Error: {err}");
 						}
 					});
