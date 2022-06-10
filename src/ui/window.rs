@@ -46,7 +46,7 @@ pub fn start<F: FnOnce() + 'static>(vision_thread: std::thread::Thread, logs: lo
 
 	super::DPI_ESTIMATE.store((96.0 * platform.hidpi_factor()).round() as u32, std::sync::atomic::Ordering::Release);
 
-	let fonts = fonts::add(&mut imgui, platform.hidpi_factor());
+	let fonts = Fonts::add(&mut imgui, platform.hidpi_factor());
 
 	let renderer = Box::leak(Box::new(Renderer::init(&mut imgui, &display).expect("Failed to initialize renderer")));
 
