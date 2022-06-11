@@ -4,6 +4,49 @@ use winapi::shared::minwindef::{FALSE, TRUE};
 use winapi::shared::windef::{HDC, HMONITOR, HWND, RECT};
 use winapi::um::winnt::LPCSTR;
 
+type Frame = image::ImageBuffer<image::Bgra<u8>, Box<[u8]>>;
+
+static BLACKOUT: SusRefCell<Blackout> = SusRefCell::new(Blackout::None);
+
+#[derive(Clone, Copy, Debug)]
+enum Blackout {
+	None,
+	Ok(HWND),
+	Blackout(HWND)
+}
+impl Blackout {
+	#[inline]
+	fn is_blackout(window: HWND) -> bool {
+		match *BLACKOUT.borrow() {
+			Blackout::None | Blackout::Ok(_) => false,
+			Blackout::Blackout(handle) => handle == window
+		}
+	}
+
+	#[inline]
+	#[must_use]
+	fn update(image: &Frame, window: Option<HWND>) -> bool {
+		let mut blackout = BLACKOUT.borrow_mut();
+		if let Some(window) = window {
+			let needs_update = match *blackout {
+				Blackout::None => true,
+				Blackout::Ok(handle) | Blackout::Blackout(handle) => handle != window
+			};
+			if needs_update {
+				if image.par_iter().step_by(4).all(|byte| *byte == 0) {
+					*blackout = Blackout::Blackout(window);
+					return true;
+				} else {
+					*blackout = Blackout::Ok(window);
+				}
+			}
+		} else {
+			*blackout = Blackout::None;
+		}
+		false
+	}
+}
+
 macro_rules! os_err {
 	($other:literal) => {{
 		let mut err = std::io::Error::last_os_error();
@@ -82,36 +125,46 @@ fn window_bounds(window: HWND) -> Result<BBox<i32>, std::io::Error> {
 	}
 }
 
-pub fn frame() -> Result<image::ImageBuffer<image::Bgra<u8>, Box<[u8]>>, anyhow::Error> {
+#[inline]
+fn screen_bounds() -> BBox<i32> {
+	unsafe {
+		BBox {
+			x: winapi::um::winuser::GetSystemMetrics(winapi::um::winuser::SM_XVIRTUALSCREEN),
+			y: winapi::um::winuser::GetSystemMetrics(winapi::um::winuser::SM_YVIRTUALSCREEN),
+			w: winapi::um::winuser::GetSystemMetrics(winapi::um::winuser::SM_CXVIRTUALSCREEN),
+			h: winapi::um::winuser::GetSystemMetrics(winapi::um::winuser::SM_CYVIRTUALSCREEN),
+		}
+	}
+}
+
+pub fn frame() -> Result<Frame, anyhow::Error> {
 	unsafe {
 		#[cfg(test)]
 		winapi::um::winuser::SetProcessDpiAwarenessContext(winapi::shared::windef::DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
-		let window = find_window();
+		let raw_window = find_window();
+		let mut window_handle = raw_window;
 
-		let (hdc_screen, bounds, clip) = match window {
+		let (hdc_screen, bounds, clip) = match window_handle {
 			Some(window) => {
 				let bounds = window_bounds(window)?;
-				let hdc_screen = winapi::um::winuser::GetDC(window);
-				(hdc_screen, bounds, None)
+				if Blackout::is_blackout(window) {
+					window_handle = None;
+					let hdc_screen = winapi::um::winuser::GetDC(core::ptr::null_mut());
+					(hdc_screen, screen_bounds(), Some(bounds))
+				} else {
+					(winapi::um::winuser::GetDC(window), bounds, None)
+				}
 			}
 
 			None => {
-				let bounds = BBox {
-					x: winapi::um::winuser::GetSystemMetrics(winapi::um::winuser::SM_XVIRTUALSCREEN),
-					y: winapi::um::winuser::GetSystemMetrics(winapi::um::winuser::SM_YVIRTUALSCREEN),
-					w: winapi::um::winuser::GetSystemMetrics(winapi::um::winuser::SM_CXVIRTUALSCREEN),
-					h: winapi::um::winuser::GetSystemMetrics(winapi::um::winuser::SM_CYVIRTUALSCREEN),
-				};
-
 				let hdc_screen = winapi::um::winuser::GetDC(core::ptr::null_mut());
-
-				(hdc_screen, bounds, find_primary_display(hdc_screen))
+				(hdc_screen, screen_bounds(), find_primary_display(hdc_screen))
 			}
 		};
 
 		let hdc_screen = match UniquePtr::new_nullable(hdc_screen, |hdc_screen| {
-			winapi::um::winuser::ReleaseDC(window.unwrap_or(core::ptr::null_mut()), *hdc_screen)
+			winapi::um::winuser::ReleaseDC(window_handle.unwrap_or(core::ptr::null_mut()), *hdc_screen)
 		}) {
 			Some(hdc_screen) => hdc_screen,
 			None => return Err(os_err!("GetDC failed").into()),
@@ -159,8 +212,8 @@ pub fn frame() -> Result<image::ImageBuffer<image::Bgra<u8>, Box<[u8]>>, anyhow:
 			}
 		}
 
-		if let Some(window) = window {
-			let pw = winapi::um::winuser::PrintWindow(window, *hdc, winapi::um::winuser::PW_CLIENTONLY);
+		if let Some(window_handle) = window_handle {
+			let pw = winapi::um::winuser::PrintWindow(window_handle, *hdc, winapi::um::winuser::PW_CLIENTONLY);
 			if pw == 0 {
 				return Err(os_err!("PrintWindow failed").into());
 			}
@@ -215,7 +268,14 @@ pub fn frame() -> Result<image::ImageBuffer<image::Bgra<u8>, Box<[u8]>>, anyhow:
 			buffer[i + 3] = 255;
 		}
 
-		Ok(image::ImageBuffer::from_raw(w as u32, h as u32, buffer.into_boxed_slice()).sus_unwrap())
+		let image = image::ImageBuffer::from_raw(w as u32, h as u32, buffer.into_boxed_slice()).sus_unwrap();
+
+		// FIXME -dx12 shows black screen if we capture the window
+		if Blackout::update(&image, raw_window) {
+			frame()
+		} else {
+			Ok(image)
+		}
 	}
 }
 

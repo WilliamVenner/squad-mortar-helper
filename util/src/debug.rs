@@ -6,7 +6,9 @@ pub static OPEN_IMAGE_COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic:
 #[allow(unused)]
 macro_rules! open_image {
 	($image:expr) => {{
-		let image = $image;
+		use image::buffer::ConvertBuffer;
+
+		let image: image::RgbaImage = $image.convert();
 
 		let id = $crate::OPEN_IMAGE_COUNT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
