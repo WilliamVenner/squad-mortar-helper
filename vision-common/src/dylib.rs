@@ -79,7 +79,7 @@ macro_rules! vision_dylib_wrapper {
 						pub extern "Rust" fn [<$name _ init>](logger: &'static dyn log::Log) -> Result<(), AnyError> {
 							smh_vision_common::dylib::panic_hook();
 							log::set_max_level(log::LevelFilter::Info);
-							log::set_logger(logger).expect("Failed to set logger");
+							log::set_logger(logger).ok();
 
 							log::info!(concat!("initializing external vision provider ", stringify!($state), "..."));
 							unsafe { (&mut *STATE.get()).as_mut_ptr().write(<$state as $crate::Vision>::init()?) };

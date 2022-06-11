@@ -171,7 +171,7 @@ impl log::Log for SmhLogger {
 
 pub fn init() -> LogState {
 	log::set_max_level(log::LevelFilter::Info);
-	log::set_logger(logger()).expect("Failed to initialize logger");
+	log::set_logger(logger()).ok();
 	LogState::new()
 }
 
