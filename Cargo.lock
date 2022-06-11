@@ -364,9 +364,9 @@ dependencies = [
 
 [[package]]
 name = "cfg-expr"
-version = "0.10.2"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e068cb2806bbc15b439846dc16c5f89f8599f2c3e4d73d4449d38f9b2f0b6c5"
+checksum = "0aacacf4d96c24b2ad6eb8ee6df040e4f27b0d0b39a5710c30091baa830485db"
 dependencies = [
  "smallvec",
 ]
@@ -2834,7 +2834,10 @@ dependencies = [
 name = "smh-vision-common"
 version = "0.1.0"
 dependencies = [
+ "backtrace",
  "libloading 0.7.3",
+ "log",
+ "msgbox",
  "smh-util",
  "smh-vision-ocr",
  "toml-consts",
@@ -2921,7 +2924,6 @@ dependencies = [
 name = "squad-mortar-helper"
 version = "0.3.0"
 dependencies = [
- "backtrace",
  "build-time",
  "build_cfg",
  "bumpalo",
@@ -2934,7 +2936,6 @@ dependencies = [
  "imgui-winit-support",
  "lazy_static",
  "magic_static",
- "msgbox",
  "scrap",
  "semver 1.0.7",
  "serde",

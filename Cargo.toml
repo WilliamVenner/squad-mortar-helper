@@ -40,7 +40,6 @@ smh-vision-ocr = { path = "vision-ocr" }
 smh-heightmap-ripper = { path = "heightmap-ripper" }
 smh-web = { path = "web" }
 
-backtrace = "0"
 ctrlc = "3"
 scrap = "0"
 crc32fast = "1"
@@ -65,9 +64,6 @@ bumpalo = { version = "3", features = ["collections"] }
 walkdir = "2"
 sysreq = "0"
 semver = "1"
-
-[target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
-msgbox = "0"
 
 [target.'cfg(all(any(windows, target_os = "linux"), target_arch = "x86_64"))'.dependencies]
 smh-vision-gpu = { path = "vision-gpu", optional = true }

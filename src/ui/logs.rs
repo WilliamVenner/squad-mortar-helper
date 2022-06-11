@@ -171,18 +171,25 @@ impl log::Log for SmhLogger {
 
 pub fn init() -> LogState {
 	log::set_max_level(log::LevelFilter::Info);
-
-	let logger: Box<dyn log::Log> = if let Some("--dumplogs") = std::env::args().nth(1).as_deref() {
-		match SmhLoggerFile::new().map(Box::new).map_err(Box::new) {
-			Ok(logger) => logger,
-			Err(logger) => logger,
-		}
-	} else {
-		Box::new(SmhLogger)
-	};
-	log::set_logger(Box::leak(logger)).expect("Failed to initialize logger");
-
+	log::set_logger(logger()).expect("Failed to initialize logger");
 	LogState::new()
+}
+
+pub fn logger() -> &'static dyn log::Log {
+	lazy_static! {
+		static ref LOGGER: &'static dyn log::Log = Box::leak({
+			let logger: Box<dyn log::Log> = if let Some("--dumplogs") = std::env::args().nth(1).as_deref() {
+				match SmhLoggerFile::new().map(Box::new).map_err(Box::new) {
+					Ok(logger) => logger,
+					Err(logger) => logger,
+				}
+			} else {
+				Box::new(SmhLogger)
+			};
+			logger
+		});
+	}
+	*LOGGER
 }
 
 pub(super) fn render_window(state: &mut UiState, ui: &Ui) {

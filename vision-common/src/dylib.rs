@@ -12,11 +12,11 @@ macro_rules! vision_dylib_wrapper {
 			$($self_fn: extern "Rust" fn($($self_arg: $self_ty),*)$( -> $self_ret)?,)*
 		}
 		impl<LSDImage, E> VisionDylibWrapper<LSDImage, E> {
-			pub fn wrap(name: &str) -> Result<Self, AnyError> {
+			pub fn wrap(logger: &'static dyn log::Log, name: &str) -> Result<Self, AnyError> {
 				unsafe {
 					let library = Box::leak(Box::new(libloading::Library::new(name).or_else(|_| libloading::Library::new(format!("deps/{name}")))?));
 
-					(library.get::<extern "Rust" fn() -> Result<(), AnyError>>(format!("{name}_init\0").as_bytes()).expect("Could not find init function in vision dylib"))()?;
+					(library.get::<extern "Rust" fn(logger: &'static dyn log::Log) -> Result<(), AnyError>>(format!("{name}_init\0").as_bytes()).expect("Could not find init function in vision dylib"))(logger)?;
 
 					Ok(Self {
 						shutdown: *library.get(format!("{name}_shutdown\0").as_bytes()).expect("Could not find shutdown function in vision dylib"),
@@ -76,7 +76,11 @@ macro_rules! vision_dylib_wrapper {
 
 					$crate::paste::paste! {
 						#[no_mangle]
-						pub extern "Rust" fn [<$name _ init>]() -> Result<(), AnyError> {
+						pub extern "Rust" fn [<$name _ init>](logger: &'static dyn log::Log) -> Result<(), AnyError> {
+							smh_vision_common::dylib::panic_hook();
+							log::set_max_level(log::LevelFilter::Info);
+							log::set_logger(logger).expect("Failed to set logger");
+
 							log::info!(concat!("initializing external vision provider ", stringify!($state), "..."));
 							unsafe { (&mut *STATE.get()).as_mut_ptr().write(<$state as $crate::Vision>::init()?) };
 							log::info!(concat!(stringify!($state), " ready"));
@@ -171,4 +175,16 @@ pub mod transmuters {
 	}
 	unsafe impl<T, Buf, Pixel> Send for GpuImage<T, Buf, Pixel> {}
 	unsafe impl<T, Buf, Pixel> Sync for GpuImage<T, Buf, Pixel> {}
+}
+
+pub fn panic_hook() {
+	#[cfg(not(debug_assertions))]
+	std::panic::set_hook(Box::new(|panic| {
+		let panic = format!("{panic}\n\n{:#?}", backtrace::Backtrace::new());
+
+		#[cfg(any(target_os = "windows", target_os = "macos"))]
+		msgbox::create("SMH PANIC", &panic, msgbox::IconType::Error).ok();
+
+		log::error!("=========== PANIC ===========\n{panic}");
+	}));
 }

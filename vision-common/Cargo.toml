@@ -9,6 +9,11 @@ publish = false
 smh-util = { path = "../util" }
 smh-vision-ocr = { path = "../vision-ocr" }
 libloading = "0"
+backtrace = "0"
+log = "0"
+
+[target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
+msgbox = "0"
 
 [build-dependencies]
 toml-consts = { path = "../toml-consts" }

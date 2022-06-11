@@ -60,7 +60,7 @@ mod gpu_support {
 	pub type DylibWrapper = VisionDylibWrapper<dylib::transmuters::GpuImage<u8>, AnyError>;
 
 	unsafe fn load_gpu() -> Result<DylibWrapper, AnyError> {
-		DylibWrapper::wrap("smh_vision_gpu")
+		DylibWrapper::wrap(crate::ui::logs::logger(), "smh_vision_gpu")
 	}
 
 	pub fn gpu() -> VisionDelegate {

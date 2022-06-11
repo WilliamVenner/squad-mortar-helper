@@ -33,15 +33,7 @@ static JOIN_MAIN_THREAD: DeferCell<std::sync::mpsc::Receiver<()>> = DeferCell::d
 fn main() {
 	std::env::set_var("RUST_BACKTRACE", "full");
 
-	#[cfg(not(debug_assertions))]
-	std::panic::set_hook(Box::new(|panic| {
-		let panic = format!("{panic}\n\n{:#?}", backtrace::Backtrace::new());
-
-		#[cfg(any(target_os = "windows", target_os = "macos"))]
-		msgbox::create("SMH PANIC", &panic, msgbox::IconType::Error).ok();
-
-		log::error!("=========== PANIC ===========\n{panic}");
-	}));
+	smh_vision_common::dylib::panic_hook();
 
 	let logger = ui::logs::init();
 
