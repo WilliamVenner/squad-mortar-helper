@@ -53,6 +53,7 @@ jobs:
       id: cuda-toolkit
       with:
         method: 'network'
+        cuda: '11.6.2'
 
     - name: Build 64-bit
       run: cargo build --release --target x86_64-unknown-linux-gnu --features gpu-ptx-vendored
@@ -109,6 +110,7 @@ jobs:
       id: cuda-toolkit
       with:
         method: 'network'
+        cuda: '11.6.2'
 
     - name: Build 64-bit
       run: cargo build --release --target x86_64-pc-windows-msvc --features gpu-ptx-vendored
