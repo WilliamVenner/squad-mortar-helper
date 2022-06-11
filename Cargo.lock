@@ -724,7 +724,7 @@ checksum = "b365fabc795046672053e29c954733ec3b05e4be654ab130fe8f1f94d7051f35"
 [[package]]
 name = "cust"
 version = "0.3.2"
-source = "git+https://github.com/WilliamVenner/Rust-CUDA?branch=fix/feature-flags#96400ff621c4eef34ded7f124cd51a509362473b"
+source = "git+https://github.com/WilliamVenner/Rust-CUDA?branch=squad-mortar-helper#85611a1bf9b35ec22ec6b020e2486afa26669442"
 dependencies = [
  "bitflags",
  "bytemuck",
@@ -737,7 +737,7 @@ dependencies = [
 [[package]]
 name = "cust_core"
 version = "0.1.1"
-source = "git+https://github.com/WilliamVenner/Rust-CUDA?branch=fix/feature-flags#96400ff621c4eef34ded7f124cd51a509362473b"
+source = "git+https://github.com/WilliamVenner/Rust-CUDA?branch=squad-mortar-helper#85611a1bf9b35ec22ec6b020e2486afa26669442"
 dependencies = [
  "cust_derive",
 ]
@@ -745,7 +745,7 @@ dependencies = [
 [[package]]
 name = "cust_derive"
 version = "0.2.0"
-source = "git+https://github.com/WilliamVenner/Rust-CUDA?branch=fix/feature-flags#96400ff621c4eef34ded7f124cd51a509362473b"
+source = "git+https://github.com/WilliamVenner/Rust-CUDA?branch=squad-mortar-helper#85611a1bf9b35ec22ec6b020e2486afa26669442"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -755,7 +755,7 @@ dependencies = [
 [[package]]
 name = "cust_raw"
 version = "0.11.3"
-source = "git+https://github.com/WilliamVenner/Rust-CUDA?branch=fix/feature-flags#96400ff621c4eef34ded7f124cd51a509362473b"
+source = "git+https://github.com/WilliamVenner/Rust-CUDA?branch=squad-mortar-helper#85611a1bf9b35ec22ec6b020e2486afa26669442"
 dependencies = [
  "find_cuda_helper",
 ]
@@ -958,7 +958,7 @@ dependencies = [
 [[package]]
 name = "find_cuda_helper"
 version = "0.2.0"
-source = "git+https://github.com/WilliamVenner/Rust-CUDA?branch=fix/feature-flags#96400ff621c4eef34ded7f124cd51a509362473b"
+source = "git+https://github.com/WilliamVenner/Rust-CUDA?branch=squad-mortar-helper#85611a1bf9b35ec22ec6b020e2486afa26669442"
 dependencies = [
  "glob",
 ]

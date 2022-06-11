@@ -43,7 +43,7 @@ impl CudaInstance {
 		let module = {
 			#[cfg(any(debug_assertions, feature = "force-gpu-debug"))] {
 				const PTX: &str = concat!(include_str!(concat!("../cuda/cuda_dbg.ptx")), "\0");
-				Module::load_from_string(unsafe { std::ffi::CStr::from_ptr(PTX.as_ptr() as *const i8) })?
+				Module::load_from_string(unsafe { CStr::from_ptr(PTX.as_ptr() as *const i8) })?
 			}
 
 			#[cfg(all(not(debug_assertions), not(feature = "force-gpu-debug")))] {
@@ -81,7 +81,7 @@ impl CudaInstance {
 					PTX[0]
 				};
 
-				Module::load_from_string(unsafe { std::ffi::CStr::from_ptr(device_ptx.as_ptr() as *const i8) })?
+				Module::load_from_string(unsafe { CStr::from_ptr(device_ptx.as_ptr() as *const i8) })?
 			}
 		};
 

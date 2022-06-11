@@ -15,7 +15,7 @@ gpu-ptx-vendored = []
 
 [dependencies]
 smh-vision-common = { path = "../vision-common" }
-cust = { git = "https://github.com/WilliamVenner/Rust-CUDA", branch = "fix/feature-flags", default-features = false, features = ["bytemuck"] }
+cust = { git = "https://github.com/WilliamVenner/Rust-CUDA", branch = "squad-mortar-helper", default-features = false, features = ["bytemuck"] }
 bytemuck = { version = "1", features = ["derive"] }
 
 [dev-dependencies]
