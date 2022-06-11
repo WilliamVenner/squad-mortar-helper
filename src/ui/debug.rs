@@ -15,7 +15,7 @@ pub struct SyncedDebugState {
 }
 impl SyncedDebugState {
 	pub fn debug_view(&self) -> DebugView {
-		DebugView::try_from(self.debug_view.load(std::sync::atomic::Ordering::Acquire)).sus_unwrap()
+		DebugView::try_from(self.debug_view.load(std::sync::atomic::Ordering::Relaxed)).sus_unwrap()
 	}
 
 	pub fn set_debug_view(&self, debug_view: DebugView) {
@@ -23,7 +23,7 @@ impl SyncedDebugState {
 	}
 
 	pub fn ocr_overlay(&self) -> bool {
-		self.ocr_overlay.load(std::sync::atomic::Ordering::Acquire)
+		self.ocr_overlay.load(std::sync::atomic::Ordering::Relaxed)
 	}
 
 	pub fn set_ocr_overlay(&self, ocr_overlay: bool) {
@@ -31,7 +31,7 @@ impl SyncedDebugState {
 	}
 
 	pub fn scales_overlay(&self) -> bool {
-		self.scales_overlay.load(std::sync::atomic::Ordering::Acquire)
+		self.scales_overlay.load(std::sync::atomic::Ordering::Relaxed)
 	}
 
 	pub fn set_scales_overlay(&self, scales_overlay: bool) {

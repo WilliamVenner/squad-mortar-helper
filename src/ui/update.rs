@@ -91,7 +91,7 @@ pub(super) fn render_modal(state: &mut UiState, ui: &Ui) {
 		} => latest_version.as_deref().map(|latest_version| (latest_version, modal_opened)),
 
 		UpdateCheckState::Pending(_) => {
-			if UPDATE_CHECK_DONE.load(std::sync::atomic::Ordering::Acquire) {
+			if UPDATE_CHECK_DONE.load(std::sync::atomic::Ordering::Relaxed) {
 				let thread = match core::mem::replace(
 					&mut state.update_check,
 					UpdateCheckState::Done {

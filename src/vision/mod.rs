@@ -142,7 +142,7 @@ impl VisionState {
 						// `frame.dpi` comes from OS APIs where supported
 						// `DPI_ESTIMATE` comes from our window, which might not actually be the same as Squad's DPI, so it's an estimate
 						let dpi = frame.dpi.or_else(|| {
-							let dpi_estimate = ui::DPI_ESTIMATE.load(std::sync::atomic::Ordering::Acquire);
+							let dpi_estimate = ui::DPI_ESTIMATE.load(std::sync::atomic::Ordering::Relaxed);
 							if dpi_estimate == 0 {
 								None
 							} else {

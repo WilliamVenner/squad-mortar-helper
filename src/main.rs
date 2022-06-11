@@ -124,5 +124,5 @@ fn ctrlc_shutdown() {
 }
 
 fn is_shutdown() -> bool {
-	SHUTDOWN.load(std::sync::atomic::Ordering::Acquire)
+	SHUTDOWN.load(std::sync::atomic::Ordering::Relaxed)
 }

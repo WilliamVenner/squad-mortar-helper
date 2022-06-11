@@ -149,7 +149,7 @@ static SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
 
 lazy_static! {
 	static ref TESSERACT: SusRefCell<Tesseract> = SusRefCell::new({
-		if SHUTTING_DOWN.load(std::sync::atomic::Ordering::Acquire) {
+		if SHUTTING_DOWN.load(std::sync::atomic::Ordering::Relaxed) {
 			// null pointer is safe here because we check for it in the drop impl
 			Tesseract(std::ptr::null_mut())
 		} else {
