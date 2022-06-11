@@ -47,6 +47,8 @@ pub(super) fn render_paused_overlay(state: &UiState, ui: &Ui) {
 
 	let window = {
 		let bg = ui.push_style_color(imgui::StyleColor::ChildBg, [0.0, 0.0, 0.0, 1.0]);
+		let padding = ui.push_style_var(imgui::StyleVar::WindowPadding([0.0, 0.0]));
+		let border = ui.push_style_var(imgui::StyleVar::WindowBorderSize(0.0));
 
 		let window = imgui::ChildWindow::new("PausedOverlay")
 			.bg_alpha(0.5)
@@ -59,6 +61,8 @@ pub(super) fn render_paused_overlay(state: &UiState, ui: &Ui) {
 			.movable(false)
 			.begin(ui);
 
+		padding.end();
+		border.end();
 		bg.end();
 		window
 	};

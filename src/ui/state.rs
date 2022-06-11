@@ -57,6 +57,7 @@ impl UiState {
 
 	pub(super) fn render(&mut self, ui: &Ui) {
 		let padding = ui.push_style_var(imgui::StyleVar::WindowPadding([0.0, 0.0]));
+		let border = ui.push_style_var(imgui::StyleVar::WindowBorderSize(0.0));
 
 		let window = imgui::Window::new("Main")
 			.no_decoration()
@@ -74,6 +75,7 @@ impl UiState {
 			.begin(ui)
 			.unwrap();
 
+		border.end();
 		padding.end();
 
 		if self.new_data {
