@@ -28,7 +28,7 @@ force-gpu-debug = ["smh-vision-gpu/force-gpu-debug"]
 force-gpu-ptx-optimised = ["smh-vision-gpu/force-gpu-ptx-optimised"]
 
 [profile.release]
-strip = true
+debug = 1
 codegen-units = 1
 lto = "thin"
 
