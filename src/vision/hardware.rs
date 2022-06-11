@@ -71,7 +71,7 @@ mod gpu_support {
 					VisionDelegate::Gpu(Some(cuda))
 				},
 				Err(err) => {
-					log::error!("Error loading GPU vision: {err:?}\n\nFalling back to CPU vision...");
+					log::error!("Error loading GPU vision, you might need to update your graphics driver: {err:?}\n\nFalling back to CPU vision...");
 					cpu()
 				}
 			}
