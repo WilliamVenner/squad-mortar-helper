@@ -62,6 +62,10 @@ fn main() {
 	let capture = capture::spawn();
 
 	ui::start(vision.thread().to_owned(), logger, move || {
+		SHUTDOWN.store(true, std::sync::atomic::Ordering::Release);
+
+		vision.thread().unpark();
+
 		for thread in [capture, vision].into_iter() {
 			if let Err(err) = thread.join() {
 				if let Some(err) = err.downcast_ref::<anyhow::Error>() {

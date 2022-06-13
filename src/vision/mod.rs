@@ -261,6 +261,10 @@ pub fn start() {
 
 		while SETTINGS.paused() {
 			std::thread::park();
+
+			if crate::is_shutdown() {
+				break;
+			}
 		}
 
 		if let Some(frame) = ui::debug::FakeInputs::selected().map(|image| Frame { dpi: None, image }).or_else(capture::fresh_frame) {
