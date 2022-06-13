@@ -82,11 +82,7 @@ impl VisionState {
 				..Default::default()
 			};
 
-			let minimap_bounds = if squadex::heightmaps::is_set() {
-				debug_waterfall!(find_minimap => find_minimap(&mut self.find_minimap_threads, vision.get_cpu_frame().view(x, y, w, h)))
-			} else {
-				None
-			};
+			let minimap_bounds = debug_waterfall!(find_minimap => find_minimap(&mut self.find_minimap_threads, vision.get_cpu_frame().view(x, y, w, h)));
 
 			let mut markers = || {
 				Ok::<_, AnyError>(if SETTINGS.detect_markers() {
@@ -122,8 +118,8 @@ impl VisionState {
 				})
 			};
 
-			let meters_to_px_ratio = if minimap_bounds.is_some() {
-				// Minimap bounds detection implies a heightmap is selected, so we can use information from the heightmap to calculate meters instead
+			let meters_to_px_ratio = if squadex::heightmaps::is_set() {
+				// A heightmap is selected, so we can use information from the heightmap to calculate meters instead
 				None
 			} else {
 				Some(|| {
