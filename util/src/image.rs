@@ -8,7 +8,7 @@ macro_rules! par_iter_pixels {
 	($image:ident[$x:expr, $y:expr, $w:expr, $h:expr]) => {{
 		if $x + $w > $image.width() || $y + $h > $image.height() {
 			panic!(
-				"iter_pixels ({}, {}) to ({}, {}) is outside of bounds for {}x{} image",
+				"par_iter_pixels ({}, {}) to ({}, {}) is outside of bounds for {}x{} image",
 				$x, $y, ($x + $w) - 1, ($y + $h) - 1,
 				$image.width(),
 				$image.height()
@@ -16,70 +16,33 @@ macro_rules! par_iter_pixels {
 		}
 
 		let self_ = $crate::UnsafeSendPtr::new_const(&$image);
-		($x..($x + $w)).into_par_iter().map(move |x| ($y..($y + $h)).into_par_iter().map(move |y| (x, y))).flatten().map(move |(x_, y_)| {
+		($y..($y + $h)).into_par_iter().flat_map(move |y| ($x..($x + $w)).into_par_iter().map(move |x| {
 			let self_ = unsafe { self_.as_const() };
 
 			#[cfg(debug_assertions)]
-			let p = self_.get_pixel(x_, y_).clone();
+			let p = self_.get_pixel(x, y).clone();
 
 			#[cfg(not(debug_assertions))]
-			let p = unsafe { self_.unsafe_get_pixel(x_, y_) };
+			let p = unsafe { self_.unsafe_get_pixel(x, y) };
 
-			(x_, y_, p)
-		})
+			(x, y, p)
+		}))
 	}};
 
 	($image:ident) => {{
 		let (w, h) = $image.dimensions();
 		let self_ = $crate::UnsafeSendPtr::new_const(&$image);
-		(0..w).into_par_iter().map(move |x| (0..h).into_par_iter().map(move |y| (x, y))).flatten().map(move |(x_, y_)| {
+		(0..h).into_par_iter().flat_map(move |y| (0..w).into_par_iter().map(move |x| {
 			let self_ = unsafe { self_.as_const() };
 
 			#[cfg(debug_assertions)]
-			let p = self_.get_pixel(x_, y_).clone();
+			let p = self_.get_pixel(x, y).clone();
 
 			#[cfg(not(debug_assertions))]
-			let p = unsafe { self_.unsafe_get_pixel(x_, y_) };
+			let p = unsafe { self_.unsafe_get_pixel(x, y) };
 
-			(x_, y_, p)
-		})
-	}};
-}
-
-#[macro_export]
-macro_rules! iter_pixels {
-	($image:ident[$x:expr, $y:expr, $w:expr, $h:expr]) => {{
-		if $x + $w > $image.width() || $y + $h > $image.height() {
-			panic!(
-				"iter_pixels ({}, {}) to ({}, {}) is outside of bounds for {}x{} image",
-				$x, $y, ($x + $w) - 1, ($y + $h) - 1,
-				$image.width(),
-				$image.height()
-			);
-		}
-
-		($x..($x + $w)).into_iter().map(move |x| ($y..($y + $h)).into_iter().map(move |y| (x, y))).flatten().map(|(x_, y_)| {
-			#[cfg(debug_assertions)]
-			let p = *$image.get_pixel(x_, y_);
-
-			#[cfg(not(debug_assertions))]
-			let p = unsafe { $image.unsafe_get_pixel(x_, y_) };
-
-			(x_, y_, p)
-		})
-	}};
-
-	($image:ident) => {{
-		let (w, h) = $image.dimensions();
-		(0..w).into_iter().map(move |x| (0..h).into_iter().map(move |y| (x, y))).flatten().map(|(x_, y_)| {
-			#[cfg(debug_assertions)]
-			let p = *$image.get_pixel(x_, y_);
-
-			#[cfg(not(debug_assertions))]
-			let p = unsafe { $image.unsafe_get_pixel(x_, y_) };
-
-			(x_, y_, p)
-		})
+			(x, y, p)
+		}))
 	}};
 }
 

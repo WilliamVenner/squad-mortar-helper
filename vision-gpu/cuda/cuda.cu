@@ -458,9 +458,9 @@ edge:
 			}
 		}
 
-		for (int32_t xx = x - OCR_PREPROCESS_DILATE_RADIUS; xx <= x + OCR_PREPROCESS_DILATE_RADIUS; xx++)
+		for (int32_t yy = y - OCR_PREPROCESS_DILATE_RADIUS; yy <= y + OCR_PREPROCESS_DILATE_RADIUS; yy++)
 		{
-			for (int32_t yy = y - OCR_PREPROCESS_DILATE_RADIUS; yy <= y + OCR_PREPROCESS_DILATE_RADIUS; yy++)
+			for (int32_t xx = x - OCR_PREPROCESS_DILATE_RADIUS; xx <= x + OCR_PREPROCESS_DILATE_RADIUS; xx++)
 			{
 				if (xx < 0 || xx >= w || yy < 0 || yy >= h)
 					continue;
@@ -570,9 +570,9 @@ extern "C" __global__ void filter_map_marker_icons(
 	const uint32_t xx = template_match.xy % stride;
 	const uint32_t yy = template_match.xy / stride;
 
-	for (uint32_t marker_x = 0; marker_x < marker_size; marker_x++)
+	for (uint32_t marker_y = 0; marker_y < marker_size; marker_y++)
 	{
-		for (uint32_t marker_y = 0; marker_y < marker_size; marker_y++)
+		for (uint32_t marker_x = 0; marker_x < marker_size; marker_x++)
 		{
 			RGBA marker_pixel = marker[marker_y * marker_size + marker_x];
 			RGB pixel = input[(yy + marker_y) * stride + (xx + marker_x)];
